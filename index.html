@@ -180,6 +180,14 @@ body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--text);min
 .loading-screen p{font-size:13px;color:var(--muted);}
 input[type=file]{display:none;}
 
+@media print{
+  .topbar,.nav,.sumbar,.sidebar,.topbar-actions,#page-expenses,#page-charts,#page-topview,.exp-btn{display:none!important;}
+  .layout{display:block!important;}
+  .page{display:block!important;}
+  #page-export{display:block!important;}
+  #reportArea{padding:0!important;}
+  .report-card{break-inside:avoid;box-shadow:none!important;border:1px solid #ccc!important;}
+}
 @media(max-width:680px){
   .layout{flex-direction:column;}
   .sidebar{width:100%;min-width:unset;border-right:none;border-bottom:1px solid var(--n2);max-height:160px;}
@@ -273,13 +281,16 @@ input[type=file]{display:none;}
 
 <!-- PAGE: EXPORT -->
 <div class="page" id="page-export">
-  <div style="padding:1.25rem;max-width:520px">
-    <div class="card">
-      <div class="card-hd">📤 Export รายงาน</div>
-      <button class="exp-btn" onclick="exportCSV()"><span class="exp-icon">📊</span><div><div style="font-weight:500">Export CSV</div><div style="font-size:11px;color:var(--muted)">เปิดใน Excel / Google Sheets</div></div></button>
-      <button class="exp-btn" onclick="window.print()"><span class="exp-icon">🖨️</span><div><div style="font-weight:500">พิมพ์ / PDF</div><div style="font-size:11px;color:var(--muted)">Ctrl+P แล้วเลือก Save as PDF</div></div></button>
-      <button class="exp-btn" onclick="exportJSON()"><span class="exp-icon">💾</span><div><div style="font-weight:500">Backup JSON</div><div style="font-size:11px;color:var(--muted)">สำรองข้อมูลทั้งหมด</div></div></button>
+  <div style="padding:1.25rem">
+    <!-- EXPORT BUTTONS -->
+    <div style="display:flex;gap:8px;margin-bottom:1.25rem;flex-wrap:wrap">
+      <button class="exp-btn" onclick="exportCSV()" style="flex:1;min-width:160px"><span class="exp-icon">📊</span><div><div style="font-weight:500">Export CSV</div><div style="font-size:11px;color:var(--muted)">เปิดใน Excel / Google Sheets</div></div></button>
+      <button class="exp-btn" onclick="printReport()" style="flex:1;min-width:160px;border-color:var(--g4);color:var(--g8)"><span class="exp-icon">🖨️</span><div><div style="font-weight:500">พิมพ์ / PDF</div><div style="font-size:11px;color:var(--muted)">Ctrl+P แล้วเลือก Save as PDF</div></div></button>
+      <button class="exp-btn" onclick="exportJSON()" style="flex:1;min-width:160px"><span class="exp-icon">💾</span><div><div style="font-weight:500">Backup JSON</div><div style="font-size:11px;color:var(--muted)">สำรองข้อมูลทั้งหมด</div></div></button>
     </div>
+
+    <!-- REPORT PREVIEW -->
+    <div id="reportArea"><!-- rendered by renderReport() --></div>
   </div>
 </div>
 
@@ -585,6 +596,7 @@ function showPage(page, tabId) {
   document.getElementById('page-'+page).classList.add('on');
   document.getElementById(tabId).classList.add('on');
   if (page==='charts') renderCharts();
+  if (page==='export') renderReport();
 }
 
 // ══════════════════════════════════════
@@ -956,6 +968,136 @@ function renderCharts() {
 // ══════════════════════════════════════
 //  EXPORT
 // ══════════════════════════════════════
+function renderReport() {
+  const totalB = phases.reduce((a,p)=>a+(p.budget||0),0);
+  const totalS = phases.reduce((a,p)=>a+p.expenses.reduce((b,e)=>b+(e.amount||0),0),0);
+  const now = new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'});
+
+  let html = `
+    <div style="background:#fff;border-radius:10px;border:1px solid var(--n2);padding:1.5rem;margin-bottom:1rem" class="report-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.25rem;padding-bottom:1rem;border-bottom:2px solid var(--g8)">
+        <div>
+          <div style="font-family:'Kanit',sans-serif;font-size:22px;font-weight:600;color:var(--g8)">🏡 บ้านภูกระดึง</div>
+          <div style="font-size:13px;color:var(--muted);margin-top:3px">บันทึกการปรับปรุงพื้นที่ — ต.ภูกระดึง จ.เลย</div>
+        </div>
+        <div style="text-align:right;font-size:12px;color:var(--muted)">
+          <div>วันที่พิมพ์</div>
+          <div style="font-weight:500;color:var(--text)">${now}</div>
+        </div>
+      </div>
+
+      <!-- SUMMARY ROW -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.5rem">
+        ${[
+          {label:'Phase ทั้งหมด', val:phases.length, unit:'Phase'},
+          {label:'เสร็จแล้ว', val:phases.filter(p=>p.status==='done').length, unit:'Phase'},
+          {label:'งบประมาณรวม', val:fmt(totalB), unit:''},
+          {label:'ค่าใช้จ่ายจริง', val:fmt(totalS), unit:''},
+        ].map(s=>`
+          <div style="background:var(--g1);border-radius:8px;padding:.75rem;text-align:center">
+            <div style="font-family:'Kanit',sans-serif;font-size:18px;font-weight:600;color:var(--g8)">${s.val}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">${s.label}</div>
+          </div>`).join('')}
+      </div>
+
+      <!-- SUMMARY BY TYPE TABLE -->
+      <div style="margin-bottom:1.5rem">
+        <div style="font-weight:600;font-size:13px;margin-bottom:.5rem;color:var(--g8)">สรุปค่าใช้จ่ายตามประเภท</div>
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead><tr style="background:var(--g8);color:#fff">
+            <th style="padding:7px 10px;text-align:left;border-radius:6px 0 0 0">ประเภท</th>
+            <th style="padding:7px 10px;text-align:right">จำนวนรายการ</th>
+            <th style="padding:7px 10px;text-align:right;border-radius:0 6px 0 0">จำนวนเงิน</th>
+          </tr></thead>
+          <tbody>
+            ${Object.entries({lumpsum:'เหมารวม',material:'วัสดุ',labor:'แรงงาน',equipment:'เครื่องจักร',other:'อื่นๆ'}).map(([k,v])=>{
+              const exps = phases.flatMap(p=>p.expenses.filter(e=>e.cat===k));
+              if(!exps.length) return '';
+              const sum = exps.reduce((a,e)=>a+(e.amount||0),0);
+              return `<tr style="border-bottom:1px solid var(--n1)">
+                <td style="padding:7px 10px"><span class="ecat ${CC[k]}">${v}</span></td>
+                <td style="padding:7px 10px;text-align:right;color:var(--muted)">${exps.length} รายการ</td>
+                <td style="padding:7px 10px;text-align:right;font-family:'Kanit',sans-serif;font-weight:500;color:var(--g8)">${fmt(sum)}</td>
+              </tr>`;
+            }).join('')}
+            <tr style="background:var(--n0);font-weight:600">
+              <td style="padding:8px 10px">รวมทั้งหมด</td>
+              <td style="padding:8px 10px;text-align:right;color:var(--muted)">${phases.reduce((a,p)=>a+p.expenses.length,0)} รายการ</td>
+              <td style="padding:8px 10px;text-align:right;font-family:'Kanit',sans-serif;font-size:15px;color:var(--g8)">${fmt(totalS)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PER PHASE DETAIL -->
+    ${phases.map(p=>{
+      const spent = p.expenses.reduce((a,e)=>a+(e.amount||0),0);
+      const pct = p.budget ? Math.min(100,Math.round(spent/p.budget*100)) : 0;
+      const over = p.budget && spent > p.budget;
+      return `
+      <div style="background:#fff;border-radius:10px;border:1px solid var(--n2);padding:1.25rem;margin-bottom:.875rem" class="report-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.875rem;padding-bottom:.75rem;border-bottom:1px solid var(--n1)">
+          <div>
+            <div style="font-family:'Kanit',sans-serif;font-size:16px;font-weight:500">${p.name}</div>
+            ${p.desc?`<div style="font-size:12px;color:var(--muted);margin-top:2px">${p.desc}</div>`:''}
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span class="sbadge ${SC[p.status]||'s-plan'}">${SL[p.status]||p.status}</span>
+            <span style="font-family:'Kanit',sans-serif;font-size:15px;font-weight:600;color:${over?'var(--r6)':'var(--g8)'}">${fmt(spent)}</span>
+          </div>
+        </div>
+
+        ${p.budget?`
+        <div style="margin-bottom:.875rem">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:3px">
+            <span>งบประมาณ ${fmt(p.budget)}</span>
+            <span style="color:${over?'var(--r6)':'var(--muted)'}">${pct}%${over?' ⚠ เกินงบ':''}</span>
+          </div>
+          <div style="height:5px;background:var(--n1);border-radius:3px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:${over?'var(--r6)':'var(--g6)'};border-radius:3px"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:3px">
+            <span>ใช้ไป ${fmt(spent)}</span>
+            <span>คงเหลือ <b style="color:${over?'var(--r6)':'var(--g7)'}">${fmt(p.budget-spent)}</b></span>
+          </div>
+        </div>`:''}
+
+        ${p.expenses.length?`
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr style="background:var(--n0)">
+            <th style="padding:6px 8px;text-align:left;font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">วันที่</th>
+            <th style="padding:6px 8px;text-align:left;font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">รายการ</th>
+            <th style="padding:6px 8px;text-align:left;font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">ประเภท</th>
+            <th style="padding:6px 8px;text-align:left;font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">จ่ายโดย</th>
+            <th style="padding:6px 8px;text-align:right;font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">จำนวนเงิน</th>
+          </tr></thead>
+          <tbody>
+            ${p.expenses.map((e,i)=>`
+            <tr style="border-bottom:1px solid var(--n0);background:${i%2?'#fff':'var(--n0)'}">
+              <td style="padding:6px 8px;color:var(--muted);white-space:nowrap">${e.date}</td>
+              <td style="padding:6px 8px">${e.desc}</td>
+              <td style="padding:6px 8px"><span class="ecat ${CC[e.cat]||'c-oth'}">${CL[e.cat]||e.cat}</span></td>
+              <td style="padding:6px 8px;color:var(--muted)">${e.paidBy||'—'}</td>
+              <td style="padding:6px 8px;text-align:right;font-family:'Kanit',sans-serif;font-weight:500;color:var(--g8)">${fmt(e.amount)}</td>
+            </tr>`).join('')}
+            <tr style="background:var(--g1);font-weight:600">
+              <td colspan="4" style="padding:7px 8px;color:var(--muted);font-size:11px">รวม Phase นี้</td>
+              <td style="padding:7px 8px;text-align:right;font-family:'Kanit',sans-serif;font-size:14px;color:var(--g8)">${fmt(spent)}</td>
+            </tr>
+          </tbody>
+        </table>`:`<p style="color:var(--muted);font-size:12px">ยังไม่มีรายการค่าใช้จ่าย</p>`}
+      </div>`;
+    }).join('')}
+  `;
+  document.getElementById('reportArea').innerHTML = html;
+}
+
+function printReport() {
+  renderReport();
+  setTimeout(() => window.print(), 300);
+}
+
 function exportCSV() {
   const rows=[['Phase','วันที่','รายการ','ประเภท','จ่ายโดย','จำนวนเงิน','สถานะ Phase','งบประมาณ']];
   phases.forEach(p=>p.expenses.forEach(e=>rows.push([p.name,e.date,e.desc,CL[e.cat]||e.cat,e.paidBy||'',e.amount,SL[p.status]||p.status,p.budget||0])));
