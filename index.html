@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>บ้านภูกระดึง — บันทึกการปรับปรุงพื้นที่</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Kanit:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --green-900:#173404;--green-800:#27500A;--green-700:#3B6D11;--green-600:#639922;
+  --green-400:#97C459;--green-200:#C0DD97;--green-50:#EAF3DE;
+  --amber-800:#633806;--amber-700:#854F0B;--amber-600:#BA7517;--amber-400:#EF9F27;
+  --amber-200:#FAC775;--amber-50:#FAEEDA;
+  --gray-900:#2C2C2A;--gray-800:#444441;--gray-700:#5F5E5A;--gray-600:#888780;
+  --gray-500:#9E9D97;--gray-400:#B4B2A9;--gray-300:#C5C3BB;--gray-200:#D3D1C7;
+  --gray-100:#E5E3DB;--gray-50:#F1EFE8;
+  --teal-700:#0F6E56;--teal-600:#0F6E56;--teal-400:#1D9E75;--teal-200:#9FE1CB;--teal-50:#E1F5EE;
+  --red-600:#A32D2D;--red-200:#F7C1C1;--red-50:#FCEBEB;
+  --blue-600:#185FA5;--blue-50:#E6F1FB;
+  --bg:#f5f3ed;--card:#fff;--text:#2C2C2A;--muted:#5F5E5A;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+/* NAV TABS */
+.topbar{background:var(--green-800);color:#fff;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.18);}
+.topbar h1{font-family:'Kanit',sans-serif;font-size:16px;font-weight:500;}
+.topbar .sub{font-size:10px;opacity:.7;margin-top:1px;}
+.topbar-right{display:flex;align-items:center;gap:8px;}
+.nav-tabs{background:var(--green-900);display:flex;gap:0;border-bottom:1px solid rgba(255,255,255,.1);}
+.nav-tab{padding:10px 20px;font-family:'Sarabun',sans-serif;font-size:13px;color:rgba(255,255,255,.65);border:none;background:transparent;cursor:pointer;transition:all .15s;border-bottom:2px solid transparent;display:flex;align-items:center;gap:6px;}
+.nav-tab:hover{color:#fff;background:rgba(255,255,255,.07);}
+.nav-tab.active{color:#fff;border-bottom-color:var(--green-400);background:rgba(255,255,255,.05);}
+
+/* SUMMARY */
+.summary-strip{background:var(--green-900);color:#fff;padding:10px 1.5rem;display:flex;gap:1.5rem;flex-wrap:wrap;align-items:center;}
+.stat{text-align:center;}
+.stat-val{font-size:19px;font-weight:600;font-family:'Kanit',sans-serif;}
+.stat-label{font-size:10px;opacity:.65;margin-top:1px;}
+.sync-info{margin-left:auto;font-size:11px;opacity:.75;display:flex;align-items:center;gap:6px;}
+.dot{width:7px;height:7px;border-radius:50%;background:#4ade80;flex-shrink:0;}
+.dot.err{background:#f87171;}.dot.loading{background:#fbbf24;animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* LAYOUT */
+.layout{display:flex;min-height:calc(100vh - 130px);}
+.sidebar{width:220px;min-width:220px;background:var(--card);border-right:1px solid var(--gray-200);padding:1rem 0;overflow-y:auto;}
+.main{flex:1;padding:1.25rem 1.5rem;overflow-y:auto;}
+
+/* SIDEBAR */
+.sidebar-title{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:0 1rem .5rem;}
+.phase-btn{display:flex;align-items:center;gap:8px;width:100%;padding:8px 12px;border:none;background:transparent;cursor:pointer;border-radius:6px;text-align:left;font-family:'Sarabun',sans-serif;font-size:13px;color:var(--text);transition:background .15s;margin-bottom:2px;}
+.phase-btn:hover{background:var(--gray-50);}
+.phase-btn.active{background:var(--green-50);color:var(--green-800);font-weight:500;}
+.phase-badge{font-size:10px;padding:2px 6px;border-radius:10px;background:var(--gray-200);color:var(--gray-700);margin-left:auto;flex-shrink:0;}
+.phase-btn.active .phase-badge{background:var(--green-200);color:var(--green-800);}
+.btn-add-phase{display:flex;align-items:center;gap:6px;width:calc(100% - 2rem);margin:.5rem 1rem;padding:8px 12px;border:1.5px dashed var(--gray-400);background:transparent;cursor:pointer;border-radius:6px;font-family:'Sarabun',sans-serif;font-size:12px;color:var(--muted);transition:all .15s;}
+.btn-add-phase:hover{border-color:var(--green-600);color:var(--green-700);background:var(--green-50);}
+
+/* CARDS */
+.card{background:var(--card);border-radius:10px;border:1px solid var(--gray-200);padding:1.25rem;margin-bottom:1rem;}
+.card-title{font-size:14px;font-weight:600;margin-bottom:.75rem;display:flex;align-items:center;gap:8px;}
+
+/* STATUS */
+.status-badge{font-size:11px;padding:3px 10px;border-radius:20px;font-weight:500;}
+.status-planning{background:var(--gray-50);color:var(--gray-700);border:1px solid var(--gray-300);}
+.status-inprogress{background:var(--amber-50);color:var(--amber-700);border:1px solid var(--amber-200);}
+.status-done{background:var(--teal-50);color:var(--teal-600);border:1px solid var(--teal-200);}
+
+/* EXPENSE TABLE */
+.expense-table{width:100%;border-collapse:collapse;font-size:13px;}
+.expense-table th{text-align:left;padding:7px 10px;font-size:10px;font-weight:600;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--gray-200);text-transform:uppercase;}
+.expense-table td{padding:9px 10px;border-bottom:1px solid var(--gray-50);vertical-align:middle;}
+.expense-table tr:last-child td{border-bottom:none;}
+.expense-table tr:hover td{background:var(--gray-50);}
+.expense-cat{font-size:10px;padding:2px 7px;border-radius:10px;font-weight:500;}
+.cat-material{background:var(--teal-50);color:var(--teal-600);}
+.cat-labor{background:var(--amber-50);color:var(--amber-700);}
+.cat-equipment{background:#e8ecfe;color:#4a5bd9;}
+.cat-lumpsum{background:#FCEBEB;color:#A32D2D;}
+.cat-other{background:var(--gray-50);color:var(--gray-700);}
+.amount-cell{font-family:'Kanit',sans-serif;font-weight:500;text-align:right;color:var(--green-800);}
+.total-row td{font-weight:600;border-top:2px solid var(--gray-200);padding-top:10px;}
+.total-amount{font-family:'Kanit',sans-serif;font-size:15px;color:var(--green-800);text-align:right;}
+.icon-btn{background:none;border:none;cursor:pointer;color:var(--gray-500);padding:3px 5px;border-radius:4px;}
+.icon-btn:hover{color:var(--red-600);background:var(--red-50);}
+
+/* ADD FORM */
+.add-form{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr auto;gap:8px;align-items:end;margin-top:1rem;padding-top:1rem;border-top:1px solid var(--gray-200);}
+.fg{display:flex;flex-direction:column;gap:3px;}
+.fg label{font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.04em;text-transform:uppercase;}
+.fg input,.fg select{height:34px;border:1px solid var(--gray-300);border-radius:6px;padding:0 10px;font-family:'Sarabun',sans-serif;font-size:13px;background:#fff;color:var(--text);outline:none;transition:border .15s;}
+.fg input:focus,.fg select:focus{border-color:var(--green-600);}
+
+/* BUTTONS */
+.btn-primary{height:34px;padding:0 14px;border:none;border-radius:6px;background:var(--green-700);color:#fff;font-family:'Sarabun',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:background .15s;white-space:nowrap;display:inline-flex;align-items:center;gap:5px;}
+.btn-primary:hover{background:var(--green-800);}
+.btn-primary:disabled{background:var(--gray-400);cursor:not-allowed;}
+.btn-sm{height:30px;padding:0 12px;font-size:12px;}
+.btn-secondary{height:34px;padding:0 14px;border:1px solid var(--gray-300);border-radius:6px;background:#fff;color:var(--text);font-family:'Sarabun',sans-serif;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:all .15s;}
+.btn-secondary:hover{background:var(--gray-50);}
+.btn-danger{height:34px;padding:0 12px;border:1px solid var(--red-200);border-radius:6px;background:var(--red-50);color:var(--red-600);font-family:'Sarabun',sans-serif;font-size:12px;cursor:pointer;}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.48);display:flex;align-items:center;justify-content:center;z-index:200;}
+.modal{background:#fff;border-radius:12px;padding:1.5rem;width:460px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.2);}
+.modal h3{font-family:'Kanit',sans-serif;font-size:17px;margin-bottom:1rem;}
+.modal-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:1.25rem;align-items:center;}
+.field{margin-bottom:.9rem;}
+.field label{display:block;font-size:11px;font-weight:600;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;}
+.field input,.field select,.field textarea{width:100%;height:36px;border:1px solid var(--gray-300);border-radius:6px;padding:0 10px;font-family:'Sarabun',sans-serif;font-size:13px;outline:none;transition:border .15s;color:var(--text);}
+.field textarea{height:72px;padding:8px 10px;resize:vertical;}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--green-600);}
+.status-row{display:flex;gap:8px;flex-wrap:wrap;}
+.status-opt{padding:5px 12px;border-radius:20px;font-size:12px;cursor:pointer;border:1.5px solid var(--gray-300);background:#fff;font-family:'Sarabun',sans-serif;transition:all .15s;}
+.status-opt.sel-planning{background:var(--gray-100);border-color:var(--gray-600);color:var(--gray-800);}
+.status-opt.sel-inprogress{background:var(--amber-50);border-color:var(--amber-600);color:var(--amber-800);}
+.status-opt.sel-done{background:var(--teal-50);border-color:var(--teal-600);color:var(--teal-700);}
+
+/* PROGRESS */
+.progress-wrap{margin:10px 0;}
+.progress-label{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px;}
+.progress-bar{height:5px;background:var(--gray-200);border-radius:3px;overflow:hidden;}
+.progress-fill{height:100%;border-radius:3px;transition:width .3s;}
+
+/* PHOTOS */
+.photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;}
+.photo-thumb{aspect-ratio:4/3;border-radius:7px;overflow:hidden;background:var(--gray-100);border:1px solid var(--gray-200);cursor:pointer;position:relative;}
+.photo-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.photo-thumb .del-ph{position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:18px;height:18px;cursor:pointer;font-size:10px;display:none;align-items:center;justify-content:center;}
+.photo-thumb:hover .del-ph{display:flex;}
+.photo-uploading{aspect-ratio:4/3;border-radius:7px;background:var(--green-50);border:2px dashed var(--green-400);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font-size:10px;color:var(--green-700);}
+.photo-add{aspect-ratio:4/3;border-radius:7px;border:2px dashed var(--gray-300);background:var(--gray-50);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);font-size:11px;gap:4px;transition:all .15s;}
+.photo-add:hover{border-color:var(--green-500);color:var(--green-700);background:var(--green-50);}
+.photo-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:7px;}
+
+/* CHART PAGE */
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;}
+.chart-wrap{position:relative;height:260px;}
+.chart-summary-table{width:100%;border-collapse:collapse;font-size:13px;}
+.chart-summary-table th{padding:8px 12px;font-size:10px;font-weight:600;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--gray-200);text-transform:uppercase;text-align:left;}
+.chart-summary-table td{padding:9px 12px;border-bottom:1px solid var(--gray-50);}
+.chart-summary-table tr:last-child td{border-bottom:none;font-weight:600;}
+
+/* TOP VIEW */
+.topview-wrap{position:relative;border-radius:10px;overflow:hidden;border:1px solid var(--gray-200);}
+.topview-wrap img{width:100%;display:block;}
+.topview-overlay{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,.6));padding:1rem;color:#fff;}
+.topview-title{font-family:'Kanit',sans-serif;font-size:16px;}
+.topview-sub{font-size:12px;opacity:.8;}
+
+/* EXPORT */
+.export-btn{display:flex;align-items:center;gap:8px;padding:10px 16px;border:1px solid var(--gray-300);border-radius:8px;background:#fff;cursor:pointer;font-family:'Sarabun',sans-serif;font-size:13px;color:var(--text);transition:all .15s;width:100%;margin-bottom:8px;}
+.export-btn:hover{background:var(--green-50);border-color:var(--green-400);color:var(--green-800);}
+.export-icon{font-size:20px;width:28px;text-align:center;}
+
+/* LIGHTBOX */
+.lightbox{position:fixed;inset:0;background:rgba(0,0,0,.9);display:flex;align-items:center;justify-content:center;z-index:400;cursor:pointer;}
+.lightbox img{max-width:90vw;max-height:90vh;border-radius:8px;cursor:default;}
+.lb-close{position:absolute;top:1rem;right:1.5rem;color:#fff;font-size:26px;cursor:pointer;background:none;border:none;}
+
+/* TOAST */
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;padding:10px 16px;border-radius:8px;font-size:13px;font-family:'Sarabun',sans-serif;z-index:500;opacity:0;transform:translateY(8px);transition:all .3s;pointer-events:none;max-width:320px;}
+.toast.show{opacity:1;transform:translateY(0);}
+.toast.ok{background:var(--green-800);color:#fff;}
+.toast.err{background:var(--red-600);color:#fff;}
+.toast.info{background:var(--gray-800);color:#fff;}
+
+/* SPINNER */
+.spin{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;}
+.spin-dark{display:inline-block;width:13px;height:13px;border:2px solid var(--gray-300);border-top-color:var(--green-600);border-radius:50%;animation:sp .7s linear infinite;}
+@keyframes sp{to{transform:rotate(360deg)}}
+.spin-lg{width:36px;height:36px;border:3px solid var(--gray-200);border-top-color:var(--green-600);border-radius:50%;animation:sp .8s linear infinite;}
+.loading-overlay{position:fixed;inset:0;background:rgba(245,243,237,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:300;gap:14px;}
+.loading-overlay p{font-size:14px;color:var(--muted);}
+
+.page{display:none;}.page.active{display:block;}
+.empty{text-align:center;padding:3rem 1rem;color:var(--muted);}
+.notes-box{background:var(--amber-50);border:1px solid var(--amber-200);border-radius:8px;padding:9px 13px;font-size:12px;color:var(--amber-800);margin-bottom:1rem;white-space:pre-wrap;line-height:1.6;}
+.hidden{display:none!important;}
+input[type="file"]{display:none;}
+.phase-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:10px;}
+
+@media print{.topbar,.nav-tabs,.summary-strip,.sidebar,.topbar-right{display:none!important;}.layout{display:block!important;}.main{padding:0!important;}}
+@media(max-width:700px){.layout{flex-direction:column;}.sidebar{width:100%;min-width:unset;border-right:none;border-bottom:1px solid var(--gray-200);max-height:180px;}.add-form{grid-template-columns:1fr 1fr;}.chart-grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spin-lg"></div>
+  <p>กำลังโหลดข้อมูลจาก Google Sheet...</p>
+</div>
+
+<div class="topbar">
+  <div>
+    <div style="font-family:'Kanit',sans-serif;font-size:16px;font-weight:500;">🏡 บ้านภูกระดึง</div>
+    <div style="font-size:10px;opacity:.7;">บันทึกการปรับปรุงพื้นที่ — ต.ภูกระดึง จ.เลย</div>
+  </div>
+  <div class="topbar-right">
+    <button class="btn-secondary btn-sm" onclick="loadData()" id="refreshBtn">↻ Sync</button>
+    <button class="btn-primary btn-sm" onclick="openAddPhaseModal()">+ Phase</button>
+  </div>
+</div>
+
+<div class="nav-tabs">
+  <button class="nav-tab active" onclick="showPage('expenses')" id="tab-expenses">📋 ค่าใช้จ่าย</button>
+  <button class="nav-tab" onclick="showPage('charts')" id="tab-charts">📊 กราฟสรุป</button>
+  <button class="nav-tab" onclick="showPage('topview')" id="tab-topview">🗺 Top View</button>
+  <button class="nav-tab" onclick="showPage('export')" id="tab-export">📤 Export</button>
+</div>
+
+<div class="summary-strip">
+  <div class="stat"><div class="stat-val" id="sumPhases">0</div><div class="stat-label">Phase</div></div>
+  <div class="stat"><div class="stat-val" id="sumDone">0</div><div class="stat-label">เสร็จแล้ว</div></div>
+  <div class="stat"><div class="stat-val" id="sumBudget">฿0</div><div class="stat-label">งบประมาณรวม</div></div>
+  <div class="stat"><div class="stat-val" id="sumSpent">฿0</div><div class="stat-label">ค่าใช้จ่ายจริง</div></div>
+  <div class="stat"><div class="stat-val" id="sumItems">0</div><div class="stat-label">รายการทั้งหมด</div></div>
+  <div class="sync-info"><span class="dot" id="syncDot"></span><span id="syncStatus">กำลังโหลด...</span></div>
+</div>
+
+<!-- PAGE: EXPENSES -->
+<div class="page active" id="page-expenses">
+  <div class="layout">
+    <div class="sidebar">
+      <div style="padding:0 1rem;margin-bottom:.5rem;"><div class="sidebar-title">Phases</div></div>
+      <div id="phaseList"></div>
+      <button class="btn-add-phase" onclick="openAddPhaseModal()">+ เพิ่ม Phase ใหม่</button>
+    </div>
+    <div class="main">
+      <div class="empty hidden" id="emptyState"><div style="font-size:40px;margin-bottom:1rem">🌿</div><p id="emptyMsg">ยังไม่มี Phase</p></div>
+      <div id="phaseContent" class="hidden"></div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE: CHARTS -->
+<div class="page" id="page-charts">
+  <div style="padding:1.25rem 1.5rem;">
+    <div class="chart-grid">
+      <div class="card">
+        <div class="card-title">🍩 ค่าใช้จ่ายแยกตามประเภท</div>
+        <div class="chart-wrap"><canvas id="chartByType"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">📊 ค่าใช้จ่ายแยกตาม Phase</div>
+        <div class="chart-wrap"><canvas id="chartByPhase"></canvas></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">📋 ตารางสรุปรายการ</div>
+      <div id="summaryTableWrap"></div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE: TOP VIEW -->
+<div class="page" id="page-topview">
+  <div style="padding:1.25rem 1.5rem;">
+    <div class="card">
+      <div class="card-title">🗺 แผนที่ Top View — พื้นที่บ้านภูกระดึง</div>
+      <div class="topview-wrap">
+        <img id="topviewImg" src="" alt="Top View ภูกระดึง">
+        <div class="topview-overlay">
+          <div class="topview-title">ที่ดินคุณรวิวรรณ — ภูกระดึง จ.เลย</div>
+          <div class="topview-sub">แปลง 187, 188, 4461, 4469, 5712, 5717, 5723, 11708</div>
+        </div>
+      </div>
+      <div style="margin-top:1rem;display:flex;gap:8px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:6px;font-size:12px;"><span style="width:12px;height:12px;background:#f5c842;border-radius:2px;display:inline-block"></span>ขอบเขตที่ดิน (เส้นเหลือง)</div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:12px;"><span style="width:12px;height:12px;background:#e74c3c;border-radius:2px;display:inline-block"></span>แปลงย่อย (เส้นแดง)</div>
+        <div style="display:flex;align-items:center;gap:6px;font-size:12px;">📍 ตำแหน่งแปลงที่ดิน</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE: EXPORT -->
+<div class="page" id="page-export">
+  <div style="padding:1.25rem 1.5rem;max-width:600px;">
+    <div class="card">
+      <div class="card-title">📤 Export รายงาน</div>
+      <button class="export-btn" onclick="exportCSV()">
+        <span class="export-icon">📊</span>
+        <div><div style="font-weight:500">Export CSV</div><div style="font-size:11px;color:var(--muted)">เปิดใน Excel หรือ Google Sheets ได้เลย</div></div>
+      </button>
+      <button class="export-btn" onclick="exportPrint()">
+        <span class="export-icon">🖨️</span>
+        <div><div style="font-weight:500">พิมพ์ / Export PDF</div><div style="font-size:11px;color:var(--muted)">กด Ctrl+P แล้วเลือก Save as PDF</div></div>
+      </button>
+      <button class="export-btn" onclick="exportJSON()">
+        <span class="export-icon">💾</span>
+        <div><div style="font-weight:500">Backup JSON</div><div style="font-size:11px;color:var(--muted)">สำรองข้อมูลทั้งหมด</div></div>
+      </button>
+    </div>
+    <div class="card" id="exportPreview">
+      <div class="card-title">👁 ตัวอย่างรายงาน</div>
+      <div id="exportPreviewContent"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ADD PHASE MODAL -->
+<div class="modal-overlay hidden" id="addPhaseModal">
+  <div class="modal">
+    <h3>เพิ่ม Phase ใหม่</h3>
+    <div class="field"><label>ชื่อ Phase *</label><input id="phaseName" placeholder="เช่น ถมดิน, รั้ว, ระบบไฟฟ้า"></div>
+    <div class="field"><label>คำอธิบาย</label><textarea id="phaseDesc" placeholder="รายละเอียดของงาน"></textarea></div>
+    <div class="field"><label>งบประมาณ (บาท)</label><input id="phaseBudget" type="number" placeholder="0"></div>
+    <div class="field"><label>สถานะ</label>
+      <div class="status-row">
+        <button class="status-opt sel-planning" onclick="selectStatus('planning')" id="s-planning">วางแผน</button>
+        <button class="status-opt" onclick="selectStatus('inprogress')" id="s-inprogress">กำลังดำเนินการ</button>
+        <button class="status-opt" onclick="selectStatus('done')" id="s-done">เสร็จแล้ว</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('addPhaseModal')">ยกเลิก</button>
+      <button class="btn-primary" id="savePhasBtn" onclick="savePhase()">บันทึก Phase</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT PHASE MODAL -->
+<div class="modal-overlay hidden" id="editPhaseModal">
+  <div class="modal">
+    <h3>แก้ไข Phase</h3>
+    <div class="field"><label>ชื่อ Phase *</label><input id="editPhaseName"></div>
+    <div class="field"><label>คำอธิบาย</label><textarea id="editPhaseDesc"></textarea></div>
+    <div class="field"><label>งบประมาณ (บาท)</label><input id="editPhaseBudget" type="number"></div>
+    <div class="field"><label>สถานะ</label>
+      <div class="status-row">
+        <button class="status-opt" onclick="selectEditStatus('planning')" id="es-planning">วางแผน</button>
+        <button class="status-opt" onclick="selectEditStatus('inprogress')" id="es-inprogress">กำลังดำเนินการ</button>
+        <button class="status-opt" onclick="selectEditStatus('done')" id="es-done">เสร็จแล้ว</button>
+      </div>
+    </div>
+    <div class="field"><label>หมายเหตุ</label><textarea id="editPhaseNotes" placeholder="บันทึกเพิ่มเติม"></textarea></div>
+    <div class="modal-footer">
+      <button class="btn-danger" onclick="confirmDeletePhase()">ลบ Phase</button>
+      <div style="flex:1"></div>
+      <button class="btn-secondary" onclick="closeModal('editPhaseModal')">ยกเลิก</button>
+      <button class="btn-primary" id="saveEditPhasBtn" onclick="saveEditPhase()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<div class="lightbox hidden" id="lightbox" onclick="closeLightbox()">
+  <button class="lb-close" onclick="closeLightbox()">✕</button>
+  <img id="lightboxImg" src="" alt="" onclick="event.stopPropagation()">
+</div>
+
+<input type="file" id="fileInput" accept="image/*" multiple>
+<input type="file" id="slipInput" accept="image/*">
+<div class="toast" id="toast"></div>
+
+<script>
+const TOPVIEW_B64 = 'topview.png';
+
+// ═══ CONFIG ═══
+const GAS_URL     = 'https://script.google.com/macros/s/AKfycbymaSq2tlebtvp1s_xcfTi_s7hg43QIvj-tYdH9fPlP3IiIa6Rt3e6x_76XIV5nJAvE1w/exec';
+const CLOUD_NAME  = 'dal6iihzr';
+const CLOUD_KEY   = '994244344551824';
+const CLOUD_SEC   = 'lap0dpDdgybE-CIq2YjIZvD2mWM';
+
+// ═══ STATE ═══
+let phases = [];
+let activeId = null;
+let newSt = 'planning', editSt = 'planning', editingId = null, photoTarget = null;
+let charts = {};
+
+// ═══ PAGE NAV ═══
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+  if (name === 'charts') renderCharts();
+  if (name === 'export') renderExportPreview();
+}
+
+// ═══ SHEETS API ═══
+async function sheetsGet() {
+  const r = await fetch(GAS_URL, {redirect:'follow'});
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+async function sheetsWrite(values) {
+  const r = await fetch(GAS_URL, {
+    method:'POST', redirect:'follow',
+    headers:{'Content-Type':'text/plain'},
+    body: JSON.stringify({rows: values})
+  });
+  if (!r.ok) throw new Error(`Write ${r.status}`);
+}
+
+async function loadData() {
+  setSyncing('loading','กำลังโหลด...');
+  document.getElementById('refreshBtn').disabled = true;
+  try {
+    const data = await sheetsGet();
+    const allRows = data.values||[];
+    const rows = allRows.length>1 ? allRows.slice(1) : [];
+    phases = parseRows(rows);
+    if (!activeId && phases.length) activeId = phases[0].id;
+    render();
+    setSyncing('ok','ซิงค์แล้ว '+now());
+    toast('โหลดข้อมูลสำเร็จ','ok');
+  } catch(e) {
+    console.error(e);
+    setSyncing('err','โหลดไม่สำเร็จ');
+    toast('โหลดไม่สำเร็จ: '+e.message,'err',6000);
+    document.getElementById('emptyMsg').textContent = 'โหลดไม่สำเร็จ กรุณากด Sync';
+    document.getElementById('emptyState').classList.remove('hidden');
+    document.getElementById('phaseContent').classList.add('hidden');
+  }
+  document.getElementById('loadingOverlay').classList.add('hidden');
+  document.getElementById('refreshBtn').disabled = false;
+}
+
+function parseRows(rows) {
+  const map={}, order=[];
+  for (const r of rows) {
+    const [type,pid,pname,pdesc,budget,status,notes,eid,edate,edesc,ecat,amount,created,photoBefore,photoAfter] = r;
+    if (!pid) continue;
+    if (!map[pid]) {
+      map[pid] = {id:pid,name:pname||'',desc:pdesc||'',budget:parseFloat(budget)||0,
+                  status:status||'planning',notes:notes||'',createdAt:created||'',
+                  expenses:[],photosBefore:[],photosAfter:[]};
+      order.push(pid);
+    }
+    if (type==='EXPENSE' && eid) {
+      const slipUrl = r[13]||''; const paidBy = r[14]||'';
+      map[pid].expenses.push({id:eid,date:edate||'',desc:edesc||'',cat:ecat||'other',amount:parseFloat(amount)||0,slip:slipUrl,paidBy:paidBy});
+    }
+    if (type==='PHOTO_BEFORE' && eid) map[pid].photosBefore.push({id:eid,url:edesc||'',name:edate||''});
+    if (type==='PHOTO_AFTER' && eid) map[pid].photosAfter.push({id:eid,url:edesc||'',name:edate||''});
+  }
+  return order.map(id=>map[id]);
+}
+
+async function saveData() {
+  setSyncing('loading','กำลังบันทึก...');
+  const header = ['RowType','PhaseID','PhaseName','PhaseDesc','Budget','Status','Notes','ID','Date/Name','Desc/URL','Cat','Amount','CreatedAt'];
+  const rows = [header];
+  for (const p of phases) {
+    rows.push(['PHASE',p.id,p.name,p.desc||'',p.budget||0,p.status,p.notes||'','','','','','',p.createdAt||'']);
+    for (const e of p.expenses) rows.push(['EXPENSE',p.id,'','','','','',e.id,e.date,e.desc,e.cat,e.amount,'',e.slip||'',e.paidBy||'']);
+    for (const ph of (p.photosBefore||[])) { if(ph.uploading) continue; rows.push(['PHOTO_BEFORE',p.id,'','','','','',ph.id,ph.name,ph.url,'','','']); }
+    for (const ph of (p.photosAfter||[])) { if(ph.uploading) continue; rows.push(['PHOTO_AFTER',p.id,'','','','','',ph.id,ph.name,ph.url,'','','']); }
+  }
+  await sheetsWrite(rows);
+  setSyncing('ok','บันทึกแล้ว '+now());
+}
+
+// ═══ CLOUDINARY UPLOAD ═══
+async function uploadToCloudinary(file) {
+  const ts = Math.round(Date.now()/1000);
+  const folder = 'baan-phukadung';
+  const sigStr = `folder=${folder}&timestamp=${ts}${CLOUD_SEC}`;
+  const sig = await sha1(sigStr);
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('api_key', CLOUD_KEY);
+  fd.append('timestamp', ts);
+  fd.append('folder', folder);
+  fd.append('signature', sig);
+  const r = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {method:'POST',body:fd});
+  if (!r.ok) throw new Error('Upload failed');
+  const d = await r.json();
+  return d.secure_url;
+}
+
+async function sha1(str) {
+  const buf = new TextEncoder().encode(str);
+  const hash = await crypto.subtle.digest('SHA-1', buf);
+  return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+// ═══ UTILITIES ═══
+function genId() { return Date.now().toString(36)+Math.random().toString(36).slice(2,5); }
+function fmt(n) { return '฿'+Number(n||0).toLocaleString('th-TH'); }
+function now() { return new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}); }
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+function toast(msg,type='ok',dur=3000) {
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.className=`toast ${type} show`;
+  setTimeout(()=>el.classList.remove('show'),dur);
+}
+function setSyncing(state,msg) {
+  document.getElementById('syncDot').className='dot'+(state==='err'?' err':state==='loading'?' loading':'');
+  document.getElementById('syncStatus').textContent=msg;
+}
+function setLoading(btn,on) {
+  if(on){btn.disabled=true;btn.dataset.orig=btn.innerHTML;btn.innerHTML='<span class="spin"></span>';}
+  else{btn.disabled=false;btn.innerHTML=btn.dataset.orig;}
+}
+function selectStatus(s) {
+  newSt=s;
+  ['planning','inprogress','done'].forEach(k=>document.getElementById('s-'+k).className='status-opt'+(k===s?' sel-'+k:''));
+}
+function selectEditStatus(s) {
+  editSt=s;
+  ['planning','inprogress','done'].forEach(k=>document.getElementById('es-'+k).className='status-opt'+(k===s?' sel-'+k:''));
+}
+const statusLabel = s=>({planning:'วางแผน',inprogress:'กำลังดำเนินการ',done:'เสร็จแล้ว'}[s]||s);
+const statusCls   = s=>({planning:'status-planning',inprogress:'status-inprogress',done:'status-done'}[s]||'');
+const catLabel    = {lumpsum:'เหมารวม',material:'วัสดุ',labor:'แรงงาน',equipment:'เครื่องจักร',other:'อื่นๆ'};
+const catCls      = {lumpsum:'cat-lumpsum',material:'cat-material',labor:'cat-labor',equipment:'cat-equipment',other:'cat-other'};
+const catColors   = {lumpsum:'#A32D2D',material:'#1D9E75',labor:'#EF9F27',equipment:'#4a5bd9',other:'#888780'};
+
+// ═══ ADD PHASE ═══
+function openAddPhaseModal() {
+  document.getElementById('phaseName').value='';
+  document.getElementById('phaseDesc').value='';
+  document.getElementById('phaseBudget').value='';
+  selectStatus('planning');
+  document.getElementById('addPhaseModal').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('phaseName').focus(),100);
+}
+async function savePhase() {
+  const name=document.getElementById('phaseName').value.trim();
+  if(!name){alert('กรุณาระบุชื่อ Phase');return;}
+  const btn=document.getElementById('savePhasBtn');
+  setLoading(btn,true);
+  const p={id:genId(),name,desc:document.getElementById('phaseDesc').value,
+    budget:parseFloat(document.getElementById('phaseBudget').value)||0,
+    status:newSt,notes:'',expenses:[],photosBefore:[],photosAfter:[],
+    createdAt:new Date().toLocaleDateString('th-TH')};
+  phases.push(p); activeId=p.id;
+  render(); closeModal('addPhaseModal');
+  try{await saveData();toast('เพิ่ม Phase สำเร็จ ✓');}
+  catch(e){toast('บันทึกไม่สำเร็จ: '+e.message,'err',6000);}
+  setLoading(btn,false);
+}
+
+// ═══ EDIT PHASE ═══
+function openEditPhase(id) {
+  editingId=id;
+  const p=phases.find(x=>x.id===id);
+  document.getElementById('editPhaseName').value=p.name;
+  document.getElementById('editPhaseDesc').value=p.desc||'';
+  document.getElementById('editPhaseBudget').value=p.budget||'';
+  document.getElementById('editPhaseNotes').value=p.notes||'';
+  editSt=p.status;
+  ['planning','inprogress','done'].forEach(k=>document.getElementById('es-'+k).className='status-opt'+(k===editSt?' sel-'+k:''));
+  document.getElementById('editPhaseModal').classList.remove('hidden');
+}
+async function saveEditPhase() {
+  const name=document.getElementById('editPhaseName').value.trim();
+  if(!name){alert('กรุณาระบุชื่อ Phase');return;}
+  const btn=document.getElementById('saveEditPhasBtn');
+  setLoading(btn,true);
+  const p=phases.find(x=>x.id===editingId);
+  p.name=name; p.desc=document.getElementById('editPhaseDesc').value;
+  p.budget=parseFloat(document.getElementById('editPhaseBudget').value)||0;
+  p.status=editSt; p.notes=document.getElementById('editPhaseNotes').value;
+  render(); closeModal('editPhaseModal');
+  try{await saveData();toast('แก้ไขสำเร็จ ✓');}
+  catch(e){toast('บันทึกไม่สำเร็จ: '+e.message,'err',6000);}
+  setLoading(btn,false);
+}
+async function confirmDeletePhase() {
+  const p=phases.find(x=>x.id===editingId);
+  if(!confirm(`ลบ Phase "${p.name}" ใช่หรือไม่?`))return;
+  phases=phases.filter(x=>x.id!==editingId);
+  if(activeId===editingId) activeId=phases[0]?.id||null;
+  render(); closeModal('editPhaseModal');
+  try{await saveData();toast('ลบ Phase แล้ว','info');}
+  catch(e){toast('บันทึกไม่สำเร็จ: '+e.message,'err',6000);}
+}
+
+// ═══ EXPENSES ═══
+async function addExpense(pid) {
+  const desc=document.getElementById('exp-desc-'+pid).value.trim();
+  const cat=document.getElementById('exp-cat-'+pid).value;
+  const amount=parseFloat(document.getElementById('exp-amount-'+pid).value);
+  const date=document.getElementById('exp-date-'+pid).value;
+  if(!desc||!amount){alert('กรุณากรอกรายการและจำนวนเงิน');return;}
+  const btn=document.getElementById('addExpBtn-'+pid);
+  setLoading(btn,true);
+  const paidBy=document.getElementById('exp-paidby-'+pid).value.trim();
+  phases.find(x=>x.id===pid).expenses.push({id:genId(),date:date||new Date().toLocaleDateString('th-TH'),desc,cat,amount,slip:'',paidBy});
+  document.getElementById('exp-desc-'+pid).value='';
+  document.getElementById('exp-amount-'+pid).value='';
+  render();
+  try{await saveData();toast('เพิ่มรายการสำเร็จ ✓');}
+  catch(e){toast('บันทึกไม่สำเร็จ: '+e.message,'err',6000);}
+}
+async function deleteExpense(pid,eid) {
+  if(!confirm('ลบรายการนี้?'))return;
+  phases.find(x=>x.id===pid).expenses=phases.find(x=>x.id===pid).expenses.filter(e=>e.id!==eid);
+  render();
+  try{await saveData();toast('ลบรายการแล้ว','info');}
+  catch(e){toast('บันทึกไม่สำเร็จ: '+e.message,'err',6000);}
+}
+
+// ═══ PHOTOS (Cloudinary) ═══
+function openPhotoPicker(pid,type) { photoTarget={pid,type}; document.getElementById('fileInput').click(); }
+
+document.getElementById('fileInput').addEventListener('change', async function(e) {
+  const files=Array.from(e.target.files);
+  if(!files.length||!photoTarget)return;
+  const p=phases.find(x=>x.id===photoTarget.pid);
+  const arr=photoTarget.type==='before'?p.photosBefore:p.photosAfter;
+  const typeLabel=photoTarget.type==='before'?'ก่อนปรับปรุง':'หลังปรับปรุง';
+  // show uploading placeholders
+  const placeholders=files.map(()=>({id:'uploading-'+genId(),uploading:true,url:'',name:''}));
+  placeholders.forEach(ph=>arr.push(ph));
+  render();
+  toast(`⏳ กำลังอัปโหลดรูป${typeLabel} ${files.length} รูป...`,'info',15000);
+  let uploaded=0;
+  for(let i=0;i<files.length;i++){
+    const ph=placeholders[i];
+    try {
+      const url=await uploadToCloudinary(files[i]);
+      ph.url=url; ph.name=files[i].name; ph.uploading=false;
+      uploaded++;
+      render();
+    } catch(err) {
+      arr.splice(arr.indexOf(ph),1);
+      toast('อัปโหลดล้มเหลว: '+err.message,'err',5000);
+      render();
+    }
+  }
+  if(uploaded>0){
+    try{await saveData();toast(`✅ บันทึกรูป${typeLabel} ${uploaded} รูปเรียบร้อยแล้ว`);}
+    catch(er){toast('บันทึกไม่สำเร็จ: '+er.message,'err',6000);}
+  }
+  this.value='';
+});
+
+async function deletePhoto(pid,type,phid) {
+  if(!confirm('ลบรูปนี้?'))return;
+  const p=phases.find(x=>x.id===pid);
+  const arr=type==='before'?p.photosBefore:p.photosAfter;
+  const i=arr.findIndex(x=>x.id===phid);
+  if(i>-1){arr.splice(i,1);render();}
+  try{await saveData();toast('ลบรูปแล้ว','info');}
+  catch(e){toast('บันทึกไม่สำเร็จ: '+e.message,'err',6000);}
+}
+
+function openLightbox(src){document.getElementById('lightboxImg').src=src;document.getElementById('lightbox').classList.remove('hidden');}
+function closeLightbox(){document.getElementById('lightbox').classList.add('hidden');}
+
+// ═══ RENDER MAIN ═══
+function setActive(id){activeId=id;render();}
+
+function render() {
+  const totalBudget=phases.reduce((a,p)=>a+(p.budget||0),0);
+  const totalSpent=phases.reduce((a,p)=>a+p.expenses.reduce((b,e)=>b+(e.amount||0),0),0);
+  const totalItems=phases.reduce((a,p)=>a+p.expenses.length,0);
+  const doneCnt=phases.filter(p=>p.status==='done').length;
+  document.getElementById('sumPhases').textContent=phases.length;
+  document.getElementById('sumDone').textContent=doneCnt;
+  document.getElementById('sumBudget').textContent=fmt(totalBudget);
+  document.getElementById('sumSpent').textContent=fmt(totalSpent);
+  document.getElementById('sumItems').textContent=totalItems;
+
+  document.getElementById('phaseList').innerHTML=phases.map(p=>`
+    <button class="phase-btn ${activeId===p.id?'active':''}" onclick="setActive('${p.id}')">
+      <span style="flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${p.name}</span>
+      <span class="phase-badge">${p.expenses.length}</span>
+    </button>`).join('');
+
+  const empty=document.getElementById('emptyState');
+  const content=document.getElementById('phaseContent');
+  if(!phases.length){empty.classList.remove('hidden');content.classList.add('hidden');return;}
+  empty.classList.add('hidden');content.classList.remove('hidden');
+  if(!activeId||!phases.find(x=>x.id===activeId)) activeId=phases[0].id;
+
+  const p=phases.find(x=>x.id===activeId);
+  const spent=p.expenses.reduce((a,e)=>a+(e.amount||0),0);
+  const pct=p.budget?Math.min(100,Math.round(spent/p.budget*100)):0;
+  const over=p.budget&&spent>p.budget;
+
+  content.innerHTML=`
+    <div class="phase-header">
+      <div>
+        <h2 style="font-family:'Kanit',sans-serif;font-size:20px;font-weight:500">${p.name}</h2>
+        ${p.desc?`<p style="color:var(--muted);font-size:12px;margin-top:3px">${p.desc}</p>`:''}
+        ${p.createdAt?`<p style="font-size:11px;color:var(--gray-500);margin-top:2px">สร้างเมื่อ ${p.createdAt}</p>`:''}
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <span class="status-badge ${statusCls(p.status)}">${statusLabel(p.status)}</span>
+        <button class="btn-secondary btn-sm" onclick="openEditPhase('${p.id}')">✎ แก้ไข</button>
+      </div>
+    </div>
+
+    ${p.notes?`<div class="notes-box">📌 ${p.notes}</div>`:''}
+
+    ${p.budget?`<div class="card" style="padding:1rem">
+      <div class="progress-wrap">
+        <div class="progress-label"><span>งบประมาณ ${fmt(p.budget)}</span><span style="color:${over?'var(--red-600)':'var(--muted)'}">${pct}%${over?' ⚠ เกินงบ':''}</span></div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${over?'var(--red-600)':'var(--green-600)'}"></div></div>
+        <div style="display:flex;justify-content:space-between;margin-top:5px;font-size:11px;color:var(--muted)">
+          <span>ใช้ไป ${fmt(spent)}</span>
+          <span>คงเหลือ <strong style="color:${over?'var(--red-600)':'var(--green-700)'}">${fmt(p.budget-spent)}</strong></span>
+        </div>
+      </div>
+    </div>`:''}
+
+    <div class="card">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem">
+        <div>
+          <div class="photo-label" style="color:var(--amber-700)">📷 ก่อนปรับปรุง</div>
+          <div class="photo-grid">
+            ${(p.photosBefore||[]).map(ph=>ph.uploading
+              ? `<div class="photo-uploading"><span class="spin-dark"></span><span>กำลังอัปโหลด...</span></div>`
+              : `<div class="photo-thumb" onclick="openLightbox('${ph.url}')">
+                <img src="${ph.url}" alt="${ph.name}" loading="lazy">
+                <button class="del-ph" onclick="event.stopPropagation();deletePhoto('${p.id}','before','${ph.id}')">✕</button>
+              </div>`).join('')}
+            <div class="photo-add" onclick="openPhotoPicker('${p.id}','before')">
+              <span style="font-size:20px">+</span><span>เพิ่มรูป</span>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="photo-label" style="color:var(--teal-600)">✅ หลังปรับปรุง</div>
+          <div class="photo-grid">
+            ${(p.photosAfter||[]).map(ph=>ph.uploading
+              ? `<div class="photo-uploading"><span class="spin-dark"></span><span>กำลังอัปโหลด...</span></div>`
+              : `<div class="photo-thumb" onclick="openLightbox('${ph.url}')">
+                <img src="${ph.url}" alt="${ph.name}" loading="lazy">
+                <button class="del-ph" onclick="event.stopPropagation();deletePhoto('${p.id}','after','${ph.id}')">✕</button>
+              </div>`).join('')}
+            <div class="photo-add" onclick="openPhotoPicker('${p.id}','after')">
+              <span style="font-size:20px">+</span><span>เพิ่มรูป</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📋 รายการค่าใช้จ่าย</div>
+      ${p.expenses.length?`
+      <table class="expense-table">
+        <thead><tr><th>วันที่</th><th>รายการ</th><th>ประเภท</th><th>จ่ายโดย</th><th style="text-align:right">จำนวนเงิน</th><th style="text-align:center">สลิป</th><th></th></tr></thead>
+        <tbody>
+          ${p.expenses.map(e=>`<tr>
+            <td style="font-size:11px;color:var(--muted);white-space:nowrap">${e.date}</td>
+            <td>${e.desc}</td>
+            <td><span class="expense-cat ${catCls[e.cat]||'cat-other'}">${catLabel[e.cat]||e.cat}</span></td>
+            <td style="font-size:12px;color:var(--muted)">${e.paidBy||'—'}</td>
+            <td class="amount-cell">${fmt(e.amount)}</td>
+            <td style="text-align:center">
+              ${e.slip
+                ? `<img src="${e.slip}" onclick="openLightbox('${e.slip}')" style="width:36px;height:36px;object-fit:cover;border-radius:4px;cursor:pointer;border:1px solid var(--gray-200)">`
+                : `<label style="cursor:pointer;color:var(--muted);font-size:11px;padding:3px 6px;border:1px dashed var(--gray-300);border-radius:4px;white-space:nowrap" onclick="openSlipPicker('${p.id}','${e.id}')">+ สลิป</label>`}
+            </td>
+            <td><button class="icon-btn" onclick="deleteExpense('${p.id}','${e.id}')">✕</button></td>
+          </tr>`).join('')}
+          <tr class="total-row"><td colspan="3" style="color:var(--muted);font-size:11px">รวมทั้งหมด</td><td class="total-amount">${fmt(spent)}</td><td></td></tr>
+        </tbody>
+      </table>`:`<p style="color:var(--muted);font-size:12px;padding:4px 0">ยังไม่มีรายการ</p>`}
+      <div class="add-form">
+        <div class="fg"><label>รายการ</label><input id="exp-desc-${p.id}" placeholder="เช่น ค่าแรงถมดิน" onkeydown="if(event.key==='Enter')addExpense('${p.id}')"></div>
+        <div class="fg"><label>ประเภท</label>
+          <select id="exp-cat-${p.id}">
+            <option value="lumpsum">เหมารวม</option>
+            <option value="material">วัสดุ</option>
+            <option value="labor">แรงงาน</option>
+            <option value="equipment">เครื่องจักร</option>
+            <option value="other">อื่นๆ</option>
+          </select>
+        </div>
+        <div class="fg"><label>จำนวน (฿)</label><input id="exp-amount-${p.id}" type="number" placeholder="0" onkeydown="if(event.key==='Enter')addExpense('${p.id}')"></div>
+        <div class="fg"><label>จ่ายโดย</label><input id="exp-paidby-${p.id}" placeholder="ชื่อผู้จ่าย"></div>
+        <div class="fg"><label>วันที่</label><input id="exp-date-${p.id}" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+        <button class="btn-primary" id="addExpBtn-${p.id}" onclick="addExpense('${p.id}')">+ เพิ่ม</button>
+      </div>
+    </div>`;
+}
+
+// ═══ CHARTS ═══
+function renderCharts() {
+  // By Type
+  const byType = {material:0,labor:0,equipment:0,other:0};
+  phases.forEach(p=>p.expenses.forEach(e=>{byType[e.cat]=(byType[e.cat]||0)+(e.amount||0);}));
+
+  // By Phase
+  const phaseNames = phases.map(p=>p.name);
+  const phaseAmounts = phases.map(p=>p.expenses.reduce((a,e)=>a+(e.amount||0),0));
+  const phaseBudgets = phases.map(p=>p.budget||0);
+
+  if(charts.byType) charts.byType.destroy();
+  if(charts.byPhase) charts.byPhase.destroy();
+
+  const c1 = document.getElementById('chartByType').getContext('2d');
+  charts.byType = new Chart(c1,{
+    type:'doughnut',
+    data:{
+      labels:Object.keys(byType).map(k=>catLabel[k]),
+      datasets:[{data:Object.values(byType),backgroundColor:Object.keys(byType).map(k=>catColors[k]),borderWidth:2,borderColor:'#fff'}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{family:'Sarabun',size:12},padding:16}},tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${fmt(ctx.raw)}`}}}}
+  });
+
+  const c2 = document.getElementById('chartByPhase').getContext('2d');
+  charts.byPhase = new Chart(c2,{
+    type:'bar',
+    data:{
+      labels:phaseNames,
+      datasets:[
+        {label:'งบประมาณ',data:phaseBudgets,backgroundColor:'rgba(100,153,34,0.2)',borderColor:'var(--green-600)',borderWidth:1.5,borderRadius:4},
+        {label:'ค่าใช้จ่ายจริง',data:phaseAmounts,backgroundColor:'rgba(239,159,39,0.8)',borderColor:'var(--amber-600)',borderWidth:1.5,borderRadius:4}
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{family:'Sarabun',size:12}}}},
+      scales:{y:{ticks:{callback:v=>'฿'+v.toLocaleString('th-TH'),font:{family:'Sarabun',size:11}},grid:{color:'rgba(0,0,0,.05)'}},
+              x:{ticks:{font:{family:'Sarabun',size:11}},grid:{display:false}}}}
+  });
+
+  // Summary table
+  const totalByType = Object.entries(byType).filter(([,v])=>v>0);
+  const totalAll = Object.values(byType).reduce((a,b)=>a+b,0);
+  document.getElementById('summaryTableWrap').innerHTML=`
+    <table class="chart-summary-table">
+      <thead><tr><th>ประเภท</th><th style="text-align:right">จำนวนเงิน</th><th style="text-align:right">%</th></tr></thead>
+      <tbody>
+        ${totalByType.map(([k,v])=>`<tr>
+          <td><span class="expense-cat ${catCls[k]}">${catLabel[k]}</span></td>
+          <td style="text-align:right;font-family:'Kanit',sans-serif;color:var(--green-800)">${fmt(v)}</td>
+          <td style="text-align:right;color:var(--muted)">${totalAll?Math.round(v/totalAll*100):0}%</td>
+        </tr>`).join('')}
+        <tr style="border-top:2px solid var(--gray-200)">
+          <td style="font-weight:600">รวมทั้งหมด</td>
+          <td style="text-align:right;font-family:'Kanit',sans-serif;font-weight:600;font-size:15px;color:var(--green-800)">${fmt(totalAll)}</td>
+          <td style="text-align:right">100%</td>
+        </tr>
+      </tbody>
+    </table>`;
+}
+
+// ═══ EXPORT ═══
+function exportCSV() {
+  const rows=[['Phase','วันที่','รายการ','ประเภท','จ่ายโดย','จำนวนเงิน (บาท)','สถานะ Phase','งบประมาณ']];
+  phases.forEach(p=>p.expenses.forEach(e=>rows.push([p.name,e.date,e.desc,catLabel[e.cat]||e.cat,e.paidBy||'',e.amount,statusLabel(p.status),p.budget||0])));
+  const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const bom='\uFEFF';
+  const blob=new Blob([bom+csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=`บ้านภูกระดึง_${new Date().toLocaleDateString('th-TH')}.csv`;
+  a.click(); URL.revokeObjectURL(url);
+  toast('Export CSV สำเร็จ ✓');
+}
+function exportPrint() { window.print(); }
+function exportJSON() {
+  const data=JSON.stringify({exportDate:new Date().toISOString(),phases:phases.map(p=>({...p,photosBefore:p.photosBefore.map(x=>({id:x.id,url:x.url,name:x.name})),photosAfter:p.photosAfter.map(x=>({id:x.id,url:x.url,name:x.name}))}))},null,2);
+  const blob=new Blob([data],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url;
+  a.download=`backup_${new Date().toLocaleDateString('th-TH')}.json`; a.click();
+  URL.revokeObjectURL(url); toast('Backup JSON สำเร็จ ✓');
+}
+function renderExportPreview() {
+  const totalSpent=phases.reduce((a,p)=>a+p.expenses.reduce((b,e)=>b+(e.amount||0),0),0);
+  const totalBudget=phases.reduce((a,p)=>a+(p.budget||0),0);
+  document.getElementById('exportPreviewContent').innerHTML=`
+    <div style="font-size:13px;line-height:2">
+      <div style="font-family:'Kanit',sans-serif;font-size:16px;margin-bottom:.5rem">รายงานสรุป — บ้านภูกระดึง</div>
+      <div style="color:var(--muted);margin-bottom:1rem">ส่งออก: ${new Date().toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'})}</div>
+      ${phases.map(p=>{
+        const spent=p.expenses.reduce((a,e)=>a+(e.amount||0),0);
+        return `<div style="margin-bottom:.75rem;padding:.75rem;background:var(--gray-50);border-radius:8px">
+          <div style="font-weight:600">${p.name} <span class="status-badge ${statusCls(p.status)}" style="font-size:10px">${statusLabel(p.status)}</span></div>
+          <div style="color:var(--muted);font-size:12px">${p.expenses.length} รายการ — ${fmt(spent)}${p.budget?` / งบ ${fmt(p.budget)}`:''}</div>
+        </div>`;}).join('')}
+      <div style="font-weight:600;font-size:14px;padding-top:.5rem;border-top:1px solid var(--gray-200)">
+        รวมค่าใช้จ่ายทั้งหมด: <span style="color:var(--green-800);font-family:'Kanit',sans-serif">${fmt(totalSpent)}</span>
+        ${totalBudget?` / งบรวม: <span style="font-family:'Kanit',sans-serif">${fmt(totalBudget)}</span>`:''}
+      </div>
+    </div>`;
+}
+
+// ═══ SLIP UPLOAD ═══
+let slipTarget = null;
+function openSlipPicker(pid, eid) { slipTarget={pid,eid}; document.getElementById('slipInput').click(); }
+document.getElementById('slipInput').addEventListener('change', async function(e) {
+  const file = e.target.files[0];
+  if (!file || !slipTarget) return;
+  toast('กำลังอัปโหลดสลิป...','info',8000);
+  try {
+    const url = await uploadToCloudinary(file);
+    const p = phases.find(x=>x.id===slipTarget.pid);
+    const exp = p.expenses.find(x=>x.id===slipTarget.eid);
+    if (exp) { exp.slip = url; render(); await saveData(); toast('อัปโหลดสลิปสำเร็จ ✓'); }
+  } catch(err) { toast('อัปโหลดสลิปล้มเหลว: '+err.message,'err',5000); }
+  this.value = '';
+});
+
+// ═══ TOP VIEW ═══
+document.getElementById('topviewImg').src = TOPVIEW_B64;
+
+// ═══ MODAL CLOSE ═══
+document.querySelectorAll('.modal-overlay').forEach(el=>
+  el.addEventListener('click',function(e){if(e.target===this)this.classList.add('hidden');}));
+
+// ═══ BOOT ═══
+loadData();
+</script>
+</body>
+</html>
