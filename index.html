@@ -435,31 +435,18 @@ function showPage(name) {
 
 // ═══ SHEETS API ═══
 async function sheetsGet() {
-  const r = await fetch(GAS_URL + '?action=get', {
-    method: 'GET',
-    redirect: 'follow'
-  });
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const r = await fetch(GAS_URL + '?action=get', { method:'GET', redirect:'follow' });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
   return r.json();
 }
 async function sheetsWrite(values) {
-  // Use iframe trick to bypass CORS for POST to Apps Script
-  const payload = JSON.stringify({rows: values});
-  
-  // Method 1: Try direct POST first (works if GAS has CORS headers)
-  try {
-    const r = await fetch(GAS_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: {'Content-Type': 'text/plain;charset=utf-8'},
-      body: payload
-    });
-    // no-cors always returns opaque — wait a moment then verify
-    await new Promise(res => setTimeout(res, 1500));
-    return;
-  } catch(e) {
-    throw new Error('บันทึกไม่สำเร็จ: ' + e.message);
-  }
+  // Use GET with encoded payload — avoids CORS preflight entirely
+  const payload = encodeURIComponent(JSON.stringify({rows: values}));
+  const url = GAS_URL + '?action=write&data=' + payload;
+  const r = await fetch(url, { method: 'GET', redirect: 'follow' });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const json = await r.json();
+  if (!json.ok) throw new Error(json.error || 'GAS error');
 }
 
 async function loadData() {
