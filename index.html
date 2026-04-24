@@ -679,7 +679,7 @@ document.getElementById('fileInput').addEventListener('change', async function(e
   // show uploading placeholders
   const placeholders=files.map(()=>({id:'uploading-'+genId(),uploading:true,url:'',name:''}));
   placeholders.forEach(ph=>arr.push(ph));
-  render();
+  const savedForm=saveFormState(photoTarget.pid); render(); restoreFormState(photoTarget.pid,savedForm);
   toast(`⏳ กำลังอัปโหลดรูป${typeLabel} ${files.length} รูป...`,'info',15000);
   let uploaded=0;
   for(let i=0;i<files.length;i++){
@@ -688,11 +688,11 @@ document.getElementById('fileInput').addEventListener('change', async function(e
       const url=await uploadToCloudinary(files[i]);
       ph.url=url; ph.name=files[i].name; ph.uploading=false;
       uploaded++;
-      render();
+      const sf=saveFormState(photoTarget.pid); render(); restoreFormState(photoTarget.pid,sf);
     } catch(err) {
       arr.splice(arr.indexOf(ph),1);
       toast('อัปโหลดล้มเหลว: '+err.message,'err',5000);
-      render();
+      const sf=saveFormState(photoTarget.pid); render(); restoreFormState(photoTarget.pid,sf);
     }
   }
   if(uploaded>0){
@@ -714,6 +714,23 @@ async function deletePhoto(pid,type,phid) {
 
 function openLightbox(src){document.getElementById('lightboxImg').src=src;document.getElementById('lightbox').classList.remove('hidden');}
 function closeLightbox(){document.getElementById('lightbox').classList.add('hidden');}
+
+// ═══ FORM STATE SAVE/RESTORE ═══
+function saveFormState(pid) {
+  const state = {};
+  ['exp-desc-','exp-cat-','exp-amount-','exp-paidby-','exp-date-'].forEach(prefix => {
+    const el = document.getElementById(prefix+pid);
+    if (el) state[prefix] = el.value;
+  });
+  return state;
+}
+function restoreFormState(pid, state) {
+  if (!state) return;
+  ['exp-desc-','exp-cat-','exp-amount-','exp-paidby-','exp-date-'].forEach(prefix => {
+    const el = document.getElementById(prefix+pid);
+    if (el && state[prefix] !== undefined) el.value = state[prefix];
+  });
+}
 
 // ═══ RENDER MAIN ═══
 function setActive(id){activeId=id;render();}
@@ -1005,7 +1022,14 @@ document.getElementById('slipInput').addEventListener('change', async function(e
     const url = await uploadToCloudinary(file);
     const p = phases.find(x=>x.id===slipTarget.pid);
     const exp = p.expenses.find(x=>x.id===slipTarget.eid);
-    if (exp) { exp.slip = url; render(); await saveData(); toast('อัปโหลดสลิปสำเร็จ ✓'); }
+    if (exp) {
+      exp.slip = url;
+      const sf=saveFormState(slipTarget.pid);
+      render();
+      restoreFormState(slipTarget.pid, sf);
+      await saveData();
+      toast('อัปโหลดสลิปสำเร็จ ✓');
+    }
   } catch(err) { toast('อัปโหลดสลิปล้มเหลว: '+err.message,'err',5000); }
   this.value = '';
 });
