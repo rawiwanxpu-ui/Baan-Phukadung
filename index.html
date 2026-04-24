@@ -387,17 +387,26 @@ let isDirty = false; // tracks unsaved changes
 //  SHEETS (via GAS)
 // ══════════════════════════════════════
 async function gasGet() {
-  const r = await fetch(GAS_URL + '?action=get');
-  if (!r.ok) throw new Error('HTTP ' + r.status);
-  return r.json();
+  const ctrl = new AbortController();
+  const tid = setTimeout(() => ctrl.abort(), 8000); // 8s timeout
+  try {
+    const r = await fetch(GAS_URL + '?action=get', {signal: ctrl.signal});
+    clearTimeout(tid);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  } catch(e) {
+    clearTimeout(tid);
+    if (e.name === 'AbortError') throw new Error('หมดเวลา — GAS ตอบสนองช้าเกินไป');
+    throw e;
+  }
 }
 
 async function gasWrite(rows) {
-  const data = encodeURIComponent(JSON.stringify({rows}));
-  const r = await fetch(GAS_URL + '?action=write&data=' + data);
-  if (!r.ok) throw new Error('HTTP ' + r.status);
-  const json = await r.json();
-  if (!json.ok) throw new Error(json.error || 'GAS error');
+  const body = new URLSearchParams({action:'write', data: JSON.stringify({rows})});
+  const r = await fetch(GAS_URL, {method:'POST', body});
+  // GAS returns 200 after redirect — any 200 means success
+  if (r.status >= 200 && r.status < 400) return;
+  throw new Error('HTTP ' + r.status);
 }
 
 // ══════════════════════════════════════
@@ -407,18 +416,55 @@ async function syncFromSheet() {
   if (isDirty && !confirm('มีข้อมูลที่ยังไม่ได้บันทึกขึ้น Sheet\nถ้าโหลดใหม่จะหายไป — ดำเนินการต่อไหม?')) return;
   setSyncState('loading', 'กำลังโหลด...');
   document.getElementById('syncBtn').disabled = true;
+
+  // Hide loading screen after 1s regardless — show what we have
+  setTimeout(() => {
+    document.getElementById('loadingScreen').classList.add('hidden');
+    render();
+  }, 1000);
+
   try {
     const data = await gasGet();
     const rows = (data.values || []).slice(1);
-    phases = parseRows(rows);
-    if (!activeId && phases.length) activeId = phases[0].id;
-    isDirty = false;
-    render();
-    setSyncState('ok', 'โหลดแล้ว ' + nowTime());
-    toast('โหลดข้อมูลสำเร็จ ✓', 'ok');
+    const loaded = parseRows(rows);
+
+    if (loaded.length > 0) {
+      phases = loaded;
+      isDirty = false;
+      if (!activeId && phases.length) activeId = phases[0].id;
+      render();
+      setSyncState('ok', 'โหลดแล้ว ' + nowTime());
+      toast('โหลดข้อมูลสำเร็จ ✓', 'ok');
+    } else {
+      // Sheet empty — restore from localStorage backup if available
+      const bk = localStorage.getItem('phu_backup');
+      if (bk) {
+        phases = JSON.parse(bk);
+        if (!activeId && phases.length) activeId = phases[0].id;
+        render();
+        setSyncState('err', 'Sheet ว่าง — ใช้ข้อมูลสำรอง');
+        toast('⚠️ Sheet ว่าง — แสดงข้อมูลสำรอง กด "💾 บันทึกขึ้น Sheet" เพื่ออัปโหลด', 'err', 8000);
+        isDirty = true;
+      } else {
+        render();
+        setSyncState('ok', 'Sheet ว่าง');
+        document.getElementById('emptyMsg').textContent = 'ยังไม่มี Phase — กด "+ Phase" เพื่อเริ่มต้น';
+      }
+    }
   } catch(e) {
-    setSyncState('err', 'โหลดไม่สำเร็จ');
-    toast('โหลดไม่สำเร็จ: ' + e.message, 'err', 6000);
+    // Network error — restore from localStorage
+    const bk = localStorage.getItem('phu_backup');
+    if (bk) {
+      phases = JSON.parse(bk);
+      if (!activeId && phases.length) activeId = phases[0].id;
+      render();
+      setSyncState('err', 'ออฟไลน์ — ข้อมูลสำรอง');
+      toast('⚠️ เชื่อมต่อไม่ได้ — แสดงข้อมูลสำรองจากเครื่อง', 'err', 6000);
+      isDirty = true;
+    } else {
+      setSyncState('err', 'โหลดไม่สำเร็จ');
+      toast('โหลดไม่สำเร็จ: ' + e.message, 'err', 6000);
+    }
   }
   document.getElementById('loadingScreen').classList.add('hidden');
   document.getElementById('syncBtn').disabled = false;
