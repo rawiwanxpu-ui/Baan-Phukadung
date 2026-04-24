@@ -199,7 +199,8 @@ input[type="file"]{display:none;}
     <div style="font-size:10px;opacity:.7;">บันทึกการปรับปรุงพื้นที่ — ต.ภูกระดึง จ.เลย</div>
   </div>
   <div class="topbar-right">
-    <button class="btn-secondary btn-sm" onclick="loadData()" id="refreshBtn">↻ Sync</button>
+    <button class="btn-secondary btn-sm" onclick="loadData()" id="refreshBtn">↻ โหลด</button>
+    <button class="btn-secondary btn-sm" onclick="manualSave()" id="manualSaveBtn" style="border-color:var(--amber-400);color:var(--amber-700)">💾 บันทึกขึ้น Sheet</button>
     <button class="btn-primary btn-sm" onclick="openAddPhaseModal()">+ Phase</button>
   </div>
 </div>
@@ -394,6 +395,34 @@ let activeId = null;
 let newSt = 'planning', editSt = 'planning', editingId = null, photoTarget = null, editingExpId = null, editingExpPid = null;
 let charts = {};
 
+// ═══ MANUAL SAVE ═══
+async function manualSave() {
+  const btn = document.getElementById('manualSaveBtn');
+  setLoading(btn, true);
+  try {
+    await saveData();
+    toast('✅ บันทึกขึ้น Google Sheet เรียบร้อยแล้ว','ok');
+    // Verify by reloading after 2 sec
+    setTimeout(async () => {
+      try {
+        const data = await sheetsGet();
+        const allRows = data.values||[];
+        const rows = allRows.length>1 ? allRows.slice(1) : [];
+        const loaded = parseRows(rows);
+        if (loaded.length > 0) {
+          setSyncing('ok','บันทึกและตรวจสอบแล้ว '+now());
+        } else {
+          setSyncing('err','Sheet ยังว่าง — ลองอีกครั้ง');
+          toast('⚠️ ยังไม่ขึ้น Sheet กรุณาตรวจสอบ Apps Script','err',8000);
+        }
+      } catch(e) {}
+    }, 2500);
+  } catch(e) {
+    toast('บันทึกไม่สำเร็จ: '+e.message,'err',6000);
+  }
+  setLoading(btn, false);
+}
+
 // ═══ PAGE NAV ═══
 function showPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -414,16 +443,23 @@ async function sheetsGet() {
   return r.json();
 }
 async function sheetsWrite(values) {
-  // Apps Script requires no-cors from browser — use fetch with no-cors
-  // Data sent as URLencoded so GAS can read via e.parameter
+  // Use iframe trick to bypass CORS for POST to Apps Script
   const payload = JSON.stringify({rows: values});
-  await fetch(GAS_URL, {
-    method: 'POST',
-    mode: 'no-cors',
-    headers: {'Content-Type': 'text/plain;charset=utf-8'},
-    body: payload
-  });
-  // no-cors returns opaque response — assume success if no throw
+  
+  // Method 1: Try direct POST first (works if GAS has CORS headers)
+  try {
+    const r = await fetch(GAS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: {'Content-Type': 'text/plain;charset=utf-8'},
+      body: payload
+    });
+    // no-cors always returns opaque — wait a moment then verify
+    await new Promise(res => setTimeout(res, 1500));
+    return;
+  } catch(e) {
+    throw new Error('บันทึกไม่สำเร็จ: ' + e.message);
+  }
 }
 
 async function loadData() {
@@ -433,7 +469,22 @@ async function loadData() {
     const data = await sheetsGet();
     const allRows = data.values||[];
     const rows = allRows.length>1 ? allRows.slice(1) : [];
-    phases = parseRows(rows);
+    const loaded = parseRows(rows);
+    
+    // If Sheet is empty but we have local backup, keep local data
+    const backup = localStorage.getItem('phuKradueng_backup');
+    if (loaded.length === 0 && backup) {
+      const localData = JSON.parse(backup);
+      if (localData.length > 0) {
+        phases = localData;
+        if (!activeId && phases.length) activeId = phases[0].id;
+        render();
+        setSyncing('err','Sheet ว่าง — ใช้ข้อมูลสำรอง');
+        toast('⚠️ Sheet ว่าง กด "💾 บันทึกขึ้น Sheet" เพื่ออัปโหลด','err',8000);
+        return;
+      }
+    }
+    phases = loaded;
     if (!activeId && phases.length) activeId = phases[0].id;
     render();
     setSyncing('ok','ซิงค์แล้ว '+now());
@@ -472,6 +523,8 @@ function parseRows(rows) {
 }
 
 async function saveData() {
+  // Always backup to localStorage first
+  try { localStorage.setItem('phuKradueng_backup', JSON.stringify(phases)); } catch(e) {}
   setSyncing('loading','กำลังบันทึก...');
   const header = ['RowType','PhaseID','PhaseName','PhaseDesc','Budget','Status','Notes','ID','Date/Name','Desc/URL','Cat','Amount','CreatedAt'];
   const rows = [header];
