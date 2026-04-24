@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>บ้านภูกระดึง — บันทึกการปรับปรุงพื้นที่</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=Kanit:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green-900:#173404;--green-800:#27500A;--green-700:#3B6D11;
+    --green-600:#639922;--green-400:#97C459;--green-200:#C0DD97;--green-50:#EAF3DE;
+    --amber-800:#633806;--amber-700:#854F0B;--amber-600:#BA7517;
+    --amber-400:#EF9F27;--amber-200:#FAC775;--amber-50:#FAEEDA;
+    --gray-900:#2C2C2A;--gray-800:#444441;--gray-700:#5F5E5A;
+    --gray-600:#888780;--gray-400:#B4B2A9;--gray-300:#C5C3BB;
+    --gray-200:#D3D1C7;--gray-100:#E5E3DB;--gray-50:#F1EFE8;
+    --teal-700:#0F6E56;--teal-600:#0F6E56;--teal-400:#1D9E75;
+    --teal-200:#9FE1CB;--teal-50:#E1F5EE;
+    --red-700:#791F1F;--red-600:#A32D2D;--red-200:#F7C1C1;--red-50:#FCEBEB;
+    --bg:#f5f3ed;--card:#ffffff;--text:#2C2C2A;--muted:#5F5E5A;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Sarabun',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+  .topbar{background:var(--green-800);color:#fff;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:58px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.18);}
+  .topbar h1{font-family:'Kanit',sans-serif;font-size:17px;font-weight:500;letter-spacing:.02em;}
+  .topbar .sub{font-size:11px;opacity:.7;margin-top:2px;}
+  .topbar-right{display:flex;align-items:center;gap:10px;}
+
+  .summary-strip{background:var(--green-900);color:#fff;padding:10px 1.5rem;display:flex;gap:1.5rem;flex-wrap:wrap;align-items:center;}
+  .stat{text-align:center;}
+  .stat-val{font-size:20px;font-weight:600;font-family:'Kanit',sans-serif;}
+  .stat-label{font-size:10px;opacity:.65;margin-top:1px;}
+  .sync-info{margin-left:auto;font-size:11px;opacity:.6;display:flex;align-items:center;gap:6px;}
+  .dot{width:7px;height:7px;border-radius:50%;background:#4ade80;display:inline-block;}
+  .dot.err{background:#f87171;}
+  .dot.loading{background:#fbbf24;animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+  .layout{display:flex;min-height:calc(100vh - 104px);}
+  .sidebar{width:230px;min-width:230px;background:var(--card);border-right:1px solid var(--gray-200);padding:1rem 0;overflow-y:auto;}
+  .main{flex:1;padding:1.25rem 1.5rem;overflow-y:auto;}
+
+  .sidebar-title{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:0 1rem .5rem;}
+  .phase-btn{display:flex;align-items:center;gap:8px;width:100%;padding:8px 12px;border:none;background:transparent;cursor:pointer;border-radius:6px;text-align:left;font-family:'Sarabun',sans-serif;font-size:13px;color:var(--text);transition:background .15s;margin-bottom:2px;}
+  .phase-btn:hover{background:var(--gray-50);}
+  .phase-btn.active{background:var(--green-50);color:var(--green-800);font-weight:500;}
+  .phase-badge{font-size:10px;padding:2px 6px;border-radius:10px;background:var(--gray-200);color:var(--gray-700);margin-left:auto;}
+  .phase-btn.active .phase-badge{background:var(--green-200);color:var(--green-800);}
+  .btn-add-phase{display:flex;align-items:center;gap:6px;width:calc(100% - 2rem);margin:.5rem 1rem;padding:8px 12px;border:1.5px dashed var(--gray-400);background:transparent;cursor:pointer;border-radius:6px;font-family:'Sarabun',sans-serif;font-size:12px;color:var(--muted);transition:all .15s;}
+  .btn-add-phase:hover{border-color:var(--green-600);color:var(--green-700);background:var(--green-50);}
+
+  .card{background:var(--card);border-radius:10px;border:1px solid var(--gray-200);padding:1.25rem;margin-bottom:1rem;}
+  .card-title{font-size:14px;font-weight:600;color:var(--text);margin-bottom:.75rem;display:flex;align-items:center;gap:8px;}
+
+  .phase-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:10px;}
+  .phase-title-group h2{font-family:'Kanit',sans-serif;font-size:21px;font-weight:500;}
+  .phase-title-group p{color:var(--muted);font-size:12px;margin-top:3px;}
+  .status-badge{font-size:11px;padding:3px 10px;border-radius:20px;font-weight:500;}
+  .status-planning{background:var(--gray-50);color:var(--gray-700);border:1px solid var(--gray-300);}
+  .status-inprogress{background:var(--amber-50);color:var(--amber-700);border:1px solid var(--amber-200);}
+  .status-done{background:var(--teal-50);color:var(--teal-600);border:1px solid var(--teal-200);}
+
+  /* EXPENSE TABLE */
+  .expense-table{width:100%;border-collapse:collapse;font-size:13px;}
+  .expense-table th{text-align:left;padding:7px 10px;font-size:10px;font-weight:600;letter-spacing:.05em;color:var(--muted);border-bottom:1px solid var(--gray-200);text-transform:uppercase;}
+  .expense-table td{padding:9px 10px;border-bottom:1px solid var(--gray-50);vertical-align:middle;}
+  .expense-table tr:last-child td{border-bottom:none;}
+  .expense-table tr:hover td{background:var(--gray-50);}
+  .expense-cat{font-size:10px;padding:2px 7px;border-radius:10px;font-weight:500;}
+  .cat-material{background:var(--teal-50);color:var(--teal-600);}
+  .cat-labor{background:var(--amber-50);color:var(--amber-700);}
+  .cat-equipment{background:#e8ecfe;color:#4a5bd9;}
+  .cat-other{background:var(--gray-50);color:var(--gray-700);}
+  .amount-cell{font-family:'Kanit',sans-serif;font-weight:500;text-align:right;color:var(--green-800);}
+  .total-row td{font-weight:600;border-top:2px solid var(--gray-200);padding-top:10px;}
+  .total-amount{font-family:'Kanit',sans-serif;font-size:15px;color:var(--green-800);text-align:right;}
+  .icon-btn{background:none;border:none;cursor:pointer;color:var(--gray-600);padding:3px;border-radius:4px;}
+  .icon-btn:hover{color:var(--red-600);background:var(--red-50);}
+
+  /* ADD EXPENSE FORM */
+  .add-form{display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:8px;align-items:end;margin-top:1rem;padding-top:1rem;border-top:1px solid var(--gray-200);}
+  .fg{display:flex;flex-direction:column;gap:3px;}
+  .fg label{font-size:10px;color:var(--muted);font-weight:600;letter-spacing:.05em;text-transform:uppercase;}
+  .fg input,.fg select{height:34px;border:1px solid var(--gray-300);border-radius:6px;padding:0 10px;font-family:'Sarabun',sans-serif;font-size:13px;background:#fff;color:var(--text);outline:none;transition:border .15s;}
+  .fg input:focus,.fg select:focus{border-color:var(--green-600);}
+  .btn-primary{height:34px;padding:0 14px;border:none;border-radius:6px;background:var(--green-700);color:#fff;font-family:'Sarabun',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:background .15s;white-space:nowrap;}
+  .btn-primary:hover{background:var(--green-800);}
+  .btn-primary:disabled{background:var(--gray-400);cursor:not-allowed;}
+  .btn-secondary{height:34px;padding:0 14px;border:1px solid var(--gray-300);border-radius:6px;background:#fff;color:var(--text);font-family:'Sarabun',sans-serif;font-size:13px;cursor:pointer;transition:all .15s;}
+  .btn-secondary:hover{background:var(--gray-50);}
+  .btn-danger{height:34px;padding:0 12px;border:1px solid var(--red-200);border-radius:6px;background:var(--red-50);color:var(--red-600);font-family:'Sarabun',sans-serif;font-size:12px;cursor:pointer;}
+
+  /* MODAL */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.48);display:flex;align-items:center;justify-content:center;z-index:200;}
+  .modal{background:#fff;border-radius:12px;padding:1.5rem;width:460px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.2);}
+  .modal h3{font-family:'Kanit',sans-serif;font-size:17px;margin-bottom:1rem;}
+  .modal-footer{display:flex;justify-content:flex-end;gap:8px;margin-top:1.25rem;}
+  .field{margin-bottom:.9rem;}
+  .field label{display:block;font-size:11px;font-weight:600;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;}
+  .field input,.field select,.field textarea{width:100%;height:36px;border:1px solid var(--gray-300);border-radius:6px;padding:0 10px;font-family:'Sarabun',sans-serif;font-size:13px;outline:none;transition:border .15s;}
+  .field textarea{height:72px;padding:8px 10px;resize:vertical;}
+  .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--green-600);}
+  .status-row{display:flex;gap:8px;flex-wrap:wrap;}
+  .status-opt{padding:5px 12px;border-radius:20px;font-size:12px;cursor:pointer;border:1.5px solid var(--gray-300);background:#fff;font-family:'Sarabun',sans-serif;transition:all .15s;}
+  .status-opt.sel-planning{background:var(--gray-100);border-color:var(--gray-600);color:var(--gray-800);}
+  .status-opt.sel-inprogress{background:var(--amber-50);border-color:var(--amber-600);color:var(--amber-800);}
+  .status-opt.sel-done{background:var(--teal-50);border-color:var(--teal-600);color:var(--teal-700);}
+
+  /* PROGRESS */
+  .progress-wrap{margin:10px 0;}
+  .progress-label{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px;}
+  .progress-bar{height:5px;background:var(--gray-200);border-radius:3px;overflow:hidden;}
+  .progress-fill{height:100%;border-radius:3px;transition:width .3s;}
+
+  /* TOAST */
+  .toast{position:fixed;bottom:1.5rem;right:1.5rem;padding:10px 16px;border-radius:8px;font-size:13px;font-family:'Sarabun',sans-serif;z-index:500;opacity:0;transform:translateY(8px);transition:all .3s;pointer-events:none;}
+  .toast.show{opacity:1;transform:translateY(0);}
+  .toast.ok{background:var(--green-800);color:#fff;}
+  .toast.err{background:var(--red-600);color:#fff;}
+  .toast.info{background:var(--gray-800);color:#fff;}
+
+  /* PHOTO GRID */
+  .photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;}
+  .photo-thumb{aspect-ratio:4/3;border-radius:7px;overflow:hidden;background:var(--gray-100);border:1px solid var(--gray-200);cursor:pointer;position:relative;}
+  .photo-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+  .photo-add{aspect-ratio:4/3;border-radius:7px;border:2px dashed var(--gray-300);background:var(--gray-50);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;color:var(--muted);font-size:11px;gap:5px;transition:all .15s;}
+  .photo-add:hover{border-color:var(--green-500);color:var(--green-700);background:var(--green-50);}
+  .photo-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:7px;}
+
+  /* LIGHTBOX */
+  .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.88);display:flex;align-items:center;justify-content:center;z-index:300;}
+  .lightbox img{max-width:90vw;max-height:90vh;border-radius:8px;}
+  .lightbox .close{position:absolute;top:1rem;right:1.5rem;color:#fff;font-size:26px;cursor:pointer;background:none;border:none;}
+
+  /* SPINNER */
+  .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:5px;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .empty{text-align:center;padding:3rem;color:var(--muted);}
+  .empty svg{width:44px;height:44px;stroke:var(--gray-400);fill:none;margin-bottom:1rem;}
+  .notes-box{background:var(--amber-50);border:1px solid var(--amber-200);border-radius:8px;padding:9px 13px;font-size:12px;color:var(--amber-800);margin-bottom:1rem;white-space:pre-wrap;}
+  .hidden{display:none!important;}
+  input[type="file"]{display:none;}
+
+  @media(max-width:700px){
+    .layout{flex-direction:column;}
+    .sidebar{width:100%;min-width:unset;border-right:none;border-bottom:1px solid var(--gray-200);}
+    .add-form{grid-template-columns:1fr 1fr;}
+    .summary-strip{gap:1rem;}
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <h1>&#127968; บ้านภูกระดึง</h1>
+    <div class="sub">บันทึกการปรับปรุงพื้นที่ — ต.ภูกระดึง จ.เลย</div>
+  </div>
+  <div class="topbar-right">
+    <button class="btn-primary" onclick="openAddPhaseModal()" style="height:32px;font-size:12px;">+ เพิ่ม Phase</button>
+    <button class="btn-secondary" onclick="loadFromSheet()" style="height:32px;font-size:12px;" id="refreshBtn">&#8635; Sync</button>
+  </div>
+</div>
+
+<div class="summary-strip">
+  <div class="stat"><div class="stat-val" id="sumPhases">—</div><div class="stat-label">จำนวน Phase</div></div>
+  <div class="stat"><div class="stat-val" id="sumDone">—</div><div class="stat-label">เสร็จแล้ว</div></div>
+  <div class="stat"><div class="stat-val" id="sumBudget">—</div><div class="stat-label">งบประมาณรวม</div></div>
+  <div class="stat"><div class="stat-val" id="sumSpent">—</div><div class="stat-label">ค่าใช้จ่ายจริง</div></div>
+  <div class="stat"><div class="stat-val" id="sumItems">—</div><div class="stat-label">รายการทั้งหมด</div></div>
+  <div class="sync-info"><span class="dot" id="syncDot"></span><span id="syncStatus">กำลังโหลด...</span></div>
+</div>
+
+<div class="layout">
+  <div class="sidebar" id="sidebar">
+    <div style="padding:0 1rem;margin-bottom:.5rem;">
+      <div class="sidebar-title">Phases การปรับปรุง</div>
+    </div>
+    <div id="phaseList"></div>
+    <button class="btn-add-phase" onclick="openAddPhaseModal()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      เพิ่ม Phase ใหม่
+    </button>
+  </div>
+
+  <div class="main" id="mainContent">
+    <div class="empty" id="emptyState">
+      <svg viewBox="0 0 24 24" stroke-width="1.5"><path d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      <p id="emptyMsg">กำลังโหลดข้อมูลจาก Google Sheet...</p>
+    </div>
+    <div id="phaseContent" class="hidden"></div>
+  </div>
+</div>
+
+<!-- ADD PHASE MODAL -->
+<div class="modal-overlay hidden" id="addPhaseModal">
+  <div class="modal">
+    <h3>เพิ่ม Phase ใหม่</h3>
+    <div class="field"><label>ชื่อ Phase *</label><input id="phaseName" placeholder="เช่น ถมดิน, รั้ว, ระบบไฟฟ้า"></div>
+    <div class="field"><label>คำอธิบาย</label><textarea id="phaseDesc" placeholder="รายละเอียดของงานใน Phase นี้"></textarea></div>
+    <div class="field"><label>งบประมาณ (บาท)</label><input id="phaseBudget" type="number" placeholder="0"></div>
+    <div class="field"><label>สถานะ</label>
+      <div class="status-row">
+        <button class="status-opt sel-planning" onclick="selectStatus('planning')" id="s-planning">วางแผน</button>
+        <button class="status-opt" onclick="selectStatus('inprogress')" id="s-inprogress">กำลังดำเนินการ</button>
+        <button class="status-opt" onclick="selectStatus('done')" id="s-done">เสร็จแล้ว</button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('addPhaseModal')">ยกเลิก</button>
+      <button class="btn-primary" id="savePhaseBtn" onclick="savePhase()">บันทึก Phase</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT PHASE MODAL -->
+<div class="modal-overlay hidden" id="editPhaseModal">
+  <div class="modal">
+    <h3>แก้ไข Phase</h3>
+    <div class="field"><label>ชื่อ Phase *</label><input id="editPhaseName"></div>
+    <div class="field"><label>คำอธิบาย</label><textarea id="editPhaseDesc"></textarea></div>
+    <div class="field"><label>งบประมาณ (บาท)</label><input id="editPhaseBudget" type="number"></div>
+    <div class="field"><label>สถานะ</label>
+      <div class="status-row">
+        <button class="status-opt" onclick="selectEditStatus('planning')" id="es-planning">วางแผน</button>
+        <button class="status-opt" onclick="selectEditStatus('inprogress')" id="es-inprogress">กำลังดำเนินการ</button>
+        <button class="status-opt" onclick="selectEditStatus('done')" id="es-done">เสร็จแล้ว</button>
+      </div>
+    </div>
+    <div class="field"><label>หมายเหตุ</label><textarea id="editPhaseNotes" placeholder="บันทึกข้อมูลเพิ่มเติม"></textarea></div>
+    <div class="modal-footer">
+      <button class="btn-danger" onclick="deletePhase()">ลบ Phase</button>
+      <div style="flex:1"></div>
+      <button class="btn-secondary" onclick="closeModal('editPhaseModal')">ยกเลิก</button>
+      <button class="btn-primary" id="saveEditPhaseBtn" onclick="saveEditPhase()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- LIGHTBOX -->
+<div class="lightbox hidden" id="lightbox" onclick="closeLightbox()">
+  <button class="close">&#x2715;</button>
+  <img id="lightboxImg" src="" alt="">
+</div>
+
+<input type="file" id="fileInput" accept="image/*" multiple>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SHEET_ID = '1lzM2iUZl3ulQz59qVHWOelNa6HOy9UTnyB5M5y1dNnw';
+const SHEET_NAME = 'ค่าใช้จ่าย';
+const MCP_URL = 'https://drivemcp.googleapis.com/mcp/v1';
+
+// ── State (in-memory only; source of truth is Google Sheet) ──
+let phases = [];
+let activePhaseId = null;
+let newPhaseStatus = 'planning';
+let editPhaseStatus = 'planning';
+let editingPhaseId = null;
+let photoTarget = null;
+
+// ── Toast ──
+function toast(msg, type='ok', dur=3000) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `toast ${type} show`;
+  setTimeout(() => el.classList.remove('show'), dur);
+}
+
+// ── Sync indicator ──
+function setSyncState(state, msg) {
+  const dot = document.getElementById('syncDot');
+  dot.className = 'dot' + (state==='ok'?'': state==='err'?' err':' loading');
+  document.getElementById('syncStatus').textContent = msg;
+}
+
+// ── Call Anthropic API + Google Drive MCP ──
+async function callAI(userPrompt, systemPrompt) {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      model:'claude-sonnet-4-20250514',
+      max_tokens: 4000,
+      system: systemPrompt,
+      messages:[{role:'user', content: userPrompt}],
+      mcp_servers:[{type:'url', url: MCP_URL, name:'gdrive'}]
+    })
+  });
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  const data = await res.json();
+  return data;
+}
+
+// ── Parse JSON from AI response ──
+function extractJSON(data) {
+  const texts = data.content.filter(b => b.type==='text').map(b => b.text).join('');
+  const clean = texts.replace(/```json|```/g,'').trim();
+  const match = clean.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+  if (match) return JSON.parse(match[0]);
+  return JSON.parse(clean);
+}
+
+// ══════════════════════════════════════════
+//  LOAD FROM SHEET
+// ══════════════════════════════════════════
+async function loadFromSheet() {
+  setSyncState('loading','กำลังโหลด...');
+  document.getElementById('refreshBtn').disabled = true;
+  try {
+    const data = await callAI(
+      `Read all data from Google Sheet ID: ${SHEET_ID}, sheet name: "${SHEET_NAME}".
+Return ALL rows as-is. The sheet has these columns (row 1 is header):
+A=RowType, B=PhaseID, C=PhaseName, D=PhaseDesc, E=Budget, F=Status, G=Notes, H=ExpenseID, I=ExpDate, J=ExpDesc, K=ExpCat, L=Amount, M=CreatedAt
+
+Return JSON in this exact format:
+{"rows": [{"RowType":"...","PhaseID":"...","PhaseName":"...","PhaseDesc":"...","Budget":"...","Status":"...","Notes":"...","ExpenseID":"...","ExpDate":"...","ExpDesc":"...","ExpCat":"...","Amount":"...","CreatedAt":"..."}]}
+
+If the sheet is empty or has only a header, return {"rows":[]}`,
+      'You are a data reader. Read the Google Sheet and return its contents as JSON. Return only valid JSON, no explanation.'
+    );
+    const json = extractJSON(data);
+    phases = parseSheetRows(json.rows || []);
+    if (!activePhaseId && phases.length) activePhaseId = phases[0].id;
+    render();
+    setSyncState('ok', `โหลดแล้ว ${new Date().toLocaleTimeString('th-TH')}`);
+    toast('โหลดข้อมูลสำเร็จ', 'ok');
+  } catch(e) {
+    console.error(e);
+    setSyncState('err','โหลดไม่สำเร็จ');
+    toast('โหลดข้อมูลไม่สำเร็จ: '+e.message, 'err', 5000);
+    document.getElementById('emptyMsg').textContent = 'โหลดข้อมูลไม่สำเร็จ กรุณาลอง Sync ใหม่';
+  }
+  document.getElementById('refreshBtn').disabled = false;
+}
+
+function parseSheetRows(rows) {
+  const phaseMap = {};
+  const phaseOrder = [];
+  for (const r of rows) {
+    if (!r.PhaseID) continue;
+    if (!phaseMap[r.PhaseID]) {
+      phaseMap[r.PhaseID] = {
+        id: r.PhaseID, name: r.PhaseName||'', desc: r.PhaseDesc||'',
+        budget: parseFloat(r.Budget)||0, status: r.Status||'planning',
+        notes: r.Notes||'', createdAt: r.CreatedAt||'',
+        expenses: [], photosBefore:[], photosAfter:[]
+      };
+      phaseOrder.push(r.PhaseID);
+    }
+    if (r.RowType==='EXPENSE' && r.ExpenseID) {
+      phaseMap[r.PhaseID].expenses.push({
+        id: r.ExpenseID, date: r.ExpDate||'', desc: r.ExpDesc||'',
+        cat: r.ExpCat||'other', amount: parseFloat(r.Amount)||0
+      });
+    }
+  }
+  return phaseOrder.map(id => phaseMap[id]);
+}
+
+// ══════════════════════════════════════════
+//  WRITE TO SHEET (full rewrite)
+// ══════════════════════════════════════════
+async function writeToSheet() {
+  setSyncState('loading','กำลังบันทึก...');
+  const rows = buildSheetRows();
+  const prompt = `Update Google Sheet ID: ${SHEET_ID}, sheet name: "${SHEET_NAME}".
+1. First clear ALL existing content in the sheet.
+2. Write the following data starting from cell A1 (first row is header):
+
+${rows.map(r => r.join('\t')).join('\n')}
+
+The columns are:
+A=RowType, B=PhaseID, C=PhaseName, D=PhaseDesc, E=Budget, F=Status, G=Notes, H=ExpenseID, I=ExpDate, J=ExpDesc, K=ExpCat, L=Amount, M=CreatedAt
+
+After writing, confirm success.`;
+
+  try {
+    await callAI(prompt, 'You are a Google Sheets writer. Clear the sheet and write the given data exactly as provided. Confirm when done.');
+    setSyncState('ok', `บันทึกแล้ว ${new Date().toLocaleTimeString('th-TH')}`);
+    toast('บันทึกลง Google Sheet สำเร็จ ✓', 'ok');
+  } catch(e) {
+    console.error(e);
+    setSyncState('err','บันทึกไม่สำเร็จ');
+    toast('บันทึกไม่สำเร็จ: '+e.message, 'err', 5000);
+    throw e;
+  }
+}
+
+function buildSheetRows() {
+  const header = ['RowType','PhaseID','PhaseName','PhaseDesc','Budget','Status','Notes','ExpenseID','ExpDate','ExpDesc','ExpCat','Amount','CreatedAt'];
+  const rows = [header];
+  for (const p of phases) {
+    rows.push(['PHASE', p.id, p.name, p.desc||'', p.budget||0, p.status, p.notes||'', '', '', '', '', '', p.createdAt||'']);
+    for (const e of p.expenses) {
+      rows.push(['EXPENSE', p.id, '', '', '', '', '', e.id, e.date, e.desc, e.cat, e.amount, '']);
+    }
+  }
+  return rows;
+}
+
+// ── Utilities ──
+function genId() { return Date.now().toString(36)+Math.random().toString(36).slice(2,5); }
+function fmt(n) { if (!n && n!==0) return '—'; return '฿'+Number(n).toLocaleString('th-TH'); }
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+// ── Status helpers ──
+function selectStatus(s) {
+  newPhaseStatus = s;
+  ['planning','inprogress','done'].forEach(k => {
+    document.getElementById('s-'+k).className='status-opt'+(k===s?' sel-'+k:'');
+  });
+}
+function selectEditStatus(s) {
+  editPhaseStatus = s;
+  ['planning','inprogress','done'].forEach(k => {
+    document.getElementById('es-'+k).className='status-opt'+(k===s?' sel-'+k:'');
+  });
+}
+function statusLabel(s) { return {planning:'วางแผน',inprogress:'กำลังดำเนินการ',done:'เสร็จแล้ว'}[s]||s; }
+function statusClass(s) { return {planning:'status-planning',inprogress:'status-inprogress',done:'status-done'}[s]||''; }
+
+// ── Add Phase ──
+function openAddPhaseModal() {
+  document.getElementById('phaseName').value='';
+  document.getElementById('phaseDesc').value='';
+  document.getElementById('phaseBudget').value='';
+  selectStatus('planning');
+  document.getElementById('addPhaseModal').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('phaseName').focus(),100);
+}
+async function savePhase() {
+  const name = document.getElementById('phaseName').value.trim();
+  if (!name) { alert('กรุณาระบุชื่อ Phase'); return; }
+  const btn = document.getElementById('savePhaseBtn');
+  btn.disabled = true; btn.innerHTML='<span class="spinner"></span>กำลังบันทึก...';
+  const phase = {
+    id: genId(), name,
+    desc: document.getElementById('phaseDesc').value,
+    budget: parseFloat(document.getElementById('phaseBudget').value)||0,
+    status: newPhaseStatus, notes:'',
+    expenses:[], photosBefore:[], photosAfter:[],
+    createdAt: new Date().toLocaleDateString('th-TH')
+  };
+  phases.push(phase);
+  activePhaseId = phase.id;
+  render();
+  closeModal('addPhaseModal');
+  try { await writeToSheet(); } catch(e) {}
+  btn.disabled=false; btn.textContent='บันทึก Phase';
+}
+
+// ── Edit Phase ──
+function openEditPhase(id) {
+  editingPhaseId = id;
+  const p = phases.find(x=>x.id===id);
+  document.getElementById('editPhaseName').value=p.name;
+  document.getElementById('editPhaseDesc').value=p.desc||'';
+  document.getElementById('editPhaseBudget').value=p.budget||'';
+  document.getElementById('editPhaseNotes').value=p.notes||'';
+  editPhaseStatus=p.status;
+  ['planning','inprogress','done'].forEach(k=>{
+    document.getElementById('es-'+k).className='status-opt'+(k===editPhaseStatus?' sel-'+k:'');
+  });
+  document.getElementById('editPhaseModal').classList.remove('hidden');
+}
+async function saveEditPhase() {
+  const p = phases.find(x=>x.id===editingPhaseId);
+  const name = document.getElementById('editPhaseName').value.trim();
+  if (!name) { alert('กรุณาระบุชื่อ Phase'); return; }
+  const btn = document.getElementById('saveEditPhaseBtn');
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span>กำลังบันทึก...';
+  p.name=name; p.desc=document.getElementById('editPhaseDesc').value;
+  p.budget=parseFloat(document.getElementById('editPhaseBudget').value)||0;
+  p.status=editPhaseStatus; p.notes=document.getElementById('editPhaseNotes').value;
+  render();
+  closeModal('editPhaseModal');
+  try { await writeToSheet(); } catch(e) {}
+  btn.disabled=false; btn.textContent='บันทึก';
+}
+async function deletePhase() {
+  const p = phases.find(x=>x.id===editingPhaseId);
+  if (!confirm(`ลบ Phase "${p.name}" ใช่หรือไม่?`)) return;
+  phases = phases.filter(x=>x.id!==editingPhaseId);
+  if (activePhaseId===editingPhaseId) activePhaseId=phases[0]?.id||null;
+  render();
+  closeModal('editPhaseModal');
+  try { await writeToSheet(); } catch(e) {}
+}
+
+// ── Expenses ──
+async function addExpense(phaseId) {
+  const p = phases.find(x=>x.id===phaseId);
+  const desc = document.getElementById('exp-desc-'+phaseId).value.trim();
+  const cat = document.getElementById('exp-cat-'+phaseId).value;
+  const amount = parseFloat(document.getElementById('exp-amount-'+phaseId).value);
+  const date = document.getElementById('exp-date-'+phaseId).value;
+  if (!desc||!amount) { alert('กรุณากรอกรายการและจำนวนเงิน'); return; }
+  const btn = document.querySelector(`#addExpBtn-${phaseId}`);
+  if(btn){btn.disabled=true;btn.innerHTML='<span class="spinner"></span>';}
+  p.expenses.push({id:genId(), date:date||new Date().toLocaleDateString('th-TH'), desc, cat, amount});
+  document.getElementById('exp-desc-'+phaseId).value='';
+  document.getElementById('exp-amount-'+phaseId).value='';
+  render();
+  try { await writeToSheet(); } catch(e) {}
+}
+async function deleteExpense(phaseId, expId) {
+  const p = phases.find(x=>x.id===phaseId);
+  p.expenses = p.expenses.filter(e=>e.id!==expId);
+  render();
+  try { await writeToSheet(); } catch(e) {}
+}
+
+// ── Photos (stored locally in-memory only — base64 too large for Sheets) ──
+function openPhotoPicker(phaseId, type) {
+  photoTarget={phaseId,type};
+  document.getElementById('fileInput').click();
+}
+document.getElementById('fileInput').addEventListener('change', function(e) {
+  const files = Array.from(e.target.files);
+  if (!files.length||!photoTarget) return;
+  const p = phases.find(x=>x.id===photoTarget.phaseId);
+  const arr = photoTarget.type==='before'?p.photosBefore:p.photosAfter;
+  let done=0;
+  files.forEach(file=>{
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      arr.push({id:genId(),data:ev.target.result,name:file.name});
+      done++;
+      if(done===files.length) render();
+    };
+    reader.readAsDataURL(file);
+  });
+  this.value='';
+});
+function deletePhoto(phaseId,type,photoId) {
+  const p=phases.find(x=>x.id===phaseId);
+  const arr=type==='before'?p.photosBefore:p.photosAfter;
+  const idx=arr.findIndex(x=>x.id===photoId);
+  if(idx>-1) arr.splice(idx,1);
+  render();
+}
+function openLightbox(src){document.getElementById('lightboxImg').src=src;document.getElementById('lightbox').classList.remove('hidden');}
+function closeLightbox(){document.getElementById('lightbox').classList.add('hidden');}
+
+// ══════════════════════════════════════════
+//  RENDER
+// ══════════════════════════════════════════
+function render() {
+  // Summary
+  const totalBudget = phases.reduce((a,p)=>a+(p.budget||0),0);
+  const totalSpent = phases.reduce((a,p)=>a+p.expenses.reduce((b,e)=>b+(e.amount||0),0),0);
+  const totalItems = phases.reduce((a,p)=>a+p.expenses.length,0);
+  const doneCnt = phases.filter(p=>p.status==='done').length;
+  document.getElementById('sumPhases').textContent=phases.length;
+  document.getElementById('sumDone').textContent=doneCnt;
+  document.getElementById('sumBudget').textContent='฿'+totalBudget.toLocaleString('th-TH');
+  document.getElementById('sumSpent').textContent='฿'+totalSpent.toLocaleString('th-TH');
+  document.getElementById('sumItems').textContent=totalItems;
+
+  // Sidebar
+  document.getElementById('phaseList').innerHTML=phases.map(p=>`
+    <button class="phase-btn ${activePhaseId===p.id?'active':''}" onclick="setActive('${p.id}')">
+      <span style="flex:1;text-align:left">${p.name}</span>
+      <span class="phase-badge">${p.expenses.length}</span>
+    </button>`).join('');
+
+  // Main
+  if (!phases.length) {
+    document.getElementById('emptyState').classList.remove('hidden');
+    document.getElementById('phaseContent').classList.add('hidden');
+    document.getElementById('emptyMsg').textContent='ยังไม่มี Phase — กด "+ เพิ่ม Phase" เพื่อเริ่มต้น';
+    return;
+  }
+  document.getElementById('emptyState').classList.add('hidden');
+  document.getElementById('phaseContent').classList.remove('hidden');
+  if (!activePhaseId||!phases.find(x=>x.id===activePhaseId)) activePhaseId=phases[0].id;
+  const p = phases.find(x=>x.id===activePhaseId);
+  const spent = p.expenses.reduce((a,e)=>a+(e.amount||0),0);
+  const budgetPct = p.budget?Math.min(100,Math.round(spent/p.budget*100)):0;
+  const catLabel={material:'วัสดุ',labor:'แรงงาน',equipment:'เครื่องจักร',other:'อื่นๆ'};
+  const catClass={material:'cat-material',labor:'cat-labor',equipment:'cat-equipment',other:'cat-other'};
+
+  document.getElementById('phaseContent').innerHTML=`
+    <div class="phase-header">
+      <div class="phase-title-group">
+        <h2>${p.name}</h2>
+        ${p.desc?`<p>${p.desc}</p>`:''}
+        ${p.createdAt?`<p style="font-size:11px;color:var(--gray-600);margin-top:2px">สร้างเมื่อ ${p.createdAt}</p>`:''}
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <span class="status-badge ${statusClass(p.status)}">${statusLabel(p.status)}</span>
+        <button class="btn-secondary" style="height:30px;font-size:12px;" onclick="openEditPhase('${p.id}')">&#x270E; แก้ไข</button>
+      </div>
+    </div>
+
+    ${p.notes?`<div class="notes-box">&#128204; ${p.notes}</div>`:''}
+
+    ${p.budget?`
+    <div class="card" style="padding:1rem">
+      <div class="progress-wrap">
+        <div class="progress-label"><span>งบประมาณ ${fmt(p.budget)}</span><span>${budgetPct}%</span></div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${budgetPct}%;background:${budgetPct>100?'var(--red-600)':'var(--green-600)'}"></div></div>
+        <div style="display:flex;justify-content:space-between;margin-top:5px;font-size:11px;color:var(--muted)">
+          <span>ใช้ไป ${fmt(spent)}</span><span>คงเหลือ ${fmt(p.budget-spent)}</span>
+        </div>
+      </div>
+    </div>`:''}
+
+    <div class="card">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;">
+        <div>
+          <div class="photo-label" style="color:var(--amber-700)">&#128247; รูปก่อนปรับปรุง</div>
+          <div class="photo-grid">
+            ${(p.photosBefore||[]).map(ph=>`
+              <div class="photo-thumb" onclick="openLightbox('${ph.data}')">
+                <img src="${ph.data}" alt="${ph.name}">
+              </div>`).join('')}
+            <div class="photo-add" onclick="openPhotoPicker('${p.id}','before')">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14m-7-7h14"/></svg>
+              เพิ่มรูป
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="photo-label" style="color:var(--teal-600)">&#10004; รูปหลังปรับปรุง</div>
+          <div class="photo-grid">
+            ${(p.photosAfter||[]).map(ph=>`
+              <div class="photo-thumb" onclick="openLightbox('${ph.data}')">
+                <img src="${ph.data}" alt="${ph.name}">
+              </div>`).join('')}
+            <div class="photo-add" onclick="openPhotoPicker('${p.id}','after')">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 5v14m-7-7h14"/></svg>
+              เพิ่มรูป
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+        รายการค่าใช้จ่าย
+      </div>
+      ${p.expenses.length?`
+      <table class="expense-table">
+        <thead><tr><th>วันที่</th><th>รายการ</th><th>ประเภท</th><th style="text-align:right">จำนวนเงิน</th><th></th></tr></thead>
+        <tbody>
+          ${p.expenses.map(e=>`
+            <tr>
+              <td style="font-size:11px;color:var(--muted);white-space:nowrap">${e.date}</td>
+              <td>${e.desc}</td>
+              <td><span class="expense-cat ${catClass[e.cat]||'cat-other'}">${catLabel[e.cat]||e.cat}</span></td>
+              <td class="amount-cell">${fmt(e.amount)}</td>
+              <td><button class="icon-btn" onclick="deleteExpense('${p.id}','${e.id}')">&#x2715;</button></td>
+            </tr>`).join('')}
+          <tr class="total-row">
+            <td colspan="3" style="color:var(--muted);font-size:12px">รวมทั้งหมด</td>
+            <td class="total-amount">${fmt(spent)}</td><td></td>
+          </tr>
+        </tbody>
+      </table>`:`<p style="color:var(--muted);font-size:12px;padding:6px 0">ยังไม่มีรายการค่าใช้จ่าย</p>`}
+
+      <div class="add-form">
+        <div class="fg"><label>รายการ</label><input id="exp-desc-${p.id}" placeholder="เช่น ค่าแรงถมดิน"></div>
+        <div class="fg"><label>ประเภท</label>
+          <select id="exp-cat-${p.id}">
+            <option value="material">วัสดุ</option>
+            <option value="labor">แรงงาน</option>
+            <option value="equipment">เครื่องจักร</option>
+            <option value="other">อื่นๆ</option>
+          </select>
+        </div>
+        <div class="fg"><label>จำนวน (฿)</label><input id="exp-amount-${p.id}" type="number" placeholder="0"></div>
+        <div class="fg"><label>วันที่</label><input id="exp-date-${p.id}" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+        <button class="btn-primary" id="addExpBtn-${p.id}" onclick="addExpense('${p.id}')">+ เพิ่ม</button>
+      </div>
+    </div>
+  `;
+}
+
+function setActive(id) { activePhaseId=id; render(); }
+
+document.querySelectorAll('.modal-overlay').forEach(el=>{
+  el.addEventListener('click',function(e){ if(e.target===this) this.classList.add('hidden'); });
+});
+
+// ── Boot ──
+loadFromSheet();
+</script>
+</body>
+</html>
