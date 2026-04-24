@@ -351,6 +351,30 @@ input[type="file"]{display:none;}
   <img id="lightboxImg" src="" alt="" onclick="event.stopPropagation()">
 </div>
 
+<!-- EDIT EXPENSE MODAL -->
+<div class="modal-overlay hidden" id="editExpModal">
+  <div class="modal">
+    <h3>แก้ไขรายการค่าใช้จ่าย</h3>
+    <div class="field"><label>รายการ *</label><input id="eeDesc" placeholder="รายการค่าใช้จ่าย"></div>
+    <div class="field"><label>ประเภท</label>
+      <select id="eeCat">
+        <option value="lumpsum">เหมารวม</option>
+        <option value="material">วัสดุ</option>
+        <option value="labor">แรงงาน</option>
+        <option value="equipment">เครื่องจักร</option>
+        <option value="other">อื่นๆ</option>
+      </select>
+    </div>
+    <div class="field"><label>จ่ายโดย</label><input id="eePaidBy" placeholder="ชื่อผู้จ่าย"></div>
+    <div class="field"><label>จำนวนเงิน (บาท) *</label><input id="eeAmount" type="number" placeholder="0"></div>
+    <div class="field"><label>วันที่</label><input id="eeDate" type="date"></div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('editExpModal')">ยกเลิก</button>
+      <button class="btn-primary" id="saveEditExpBtn" onclick="saveEditExpense()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
 <input type="file" id="fileInput" accept="image/*" multiple>
 <input type="file" id="slipInput" accept="image/*">
 <div class="toast" id="toast"></div>
@@ -367,7 +391,7 @@ const CLOUD_SEC   = 'lap0dpDdgybE-CIq2YjIZvD2mWM';
 // ═══ STATE ═══
 let phases = [];
 let activeId = null;
-let newSt = 'planning', editSt = 'planning', editingId = null, photoTarget = null;
+let newSt = 'planning', editSt = 'planning', editingId = null, photoTarget = null, editingExpId = null, editingExpPid = null;
 let charts = {};
 
 // ═══ PAGE NAV ═══
@@ -751,7 +775,10 @@ function render() {
                 ? `<img src="${e.slip}" onclick="openLightbox('${e.slip}')" style="width:36px;height:36px;object-fit:cover;border-radius:4px;cursor:pointer;border:1px solid var(--gray-200)">`
                 : `<label style="cursor:pointer;color:var(--muted);font-size:11px;padding:3px 6px;border:1px dashed var(--gray-300);border-radius:4px;white-space:nowrap" onclick="openSlipPicker('${p.id}','${e.id}')">+ สลิป</label>`}
             </td>
-            <td><button class="icon-btn" onclick="deleteExpense('${p.id}','${e.id}')">✕</button></td>
+            <td style="display:flex;gap:4px;align-items:center">
+              <button class="icon-btn" onclick="openEditExpense('${p.id}','${e.id}')" title="แก้ไข" style="color:var(--green-700)">✎</button>
+              <button class="icon-btn" onclick="deleteExpense('${p.id}','${e.id}')" title="ลบ">✕</button>
+            </td>
           </tr>`).join('')}
           <tr class="total-row"><td colspan="3" style="color:var(--muted);font-size:11px">รวมทั้งหมด</td><td class="total-amount">${fmt(spent)}</td><td></td></tr>
         </tbody>
@@ -875,6 +902,49 @@ function renderExportPreview() {
         ${totalBudget?` / งบรวม: <span style="font-family:'Kanit',sans-serif">${fmt(totalBudget)}</span>`:''}
       </div>
     </div>`;
+}
+
+// ═══ EDIT EXPENSE ═══
+function openEditExpense(pid, eid) {
+  editingExpPid = pid; editingExpId = eid;
+  const p = phases.find(x=>x.id===pid);
+  const e = p.expenses.find(x=>x.id===eid);
+  document.getElementById('eeDesc').value = e.desc||'';
+  document.getElementById('eeCat').value = e.cat||'lumpsum';
+  document.getElementById('eePaidBy').value = e.paidBy||'';
+  document.getElementById('eeAmount').value = e.amount||'';
+  document.getElementById('eeDate').value = e.date ? toInputDate(e.date) : new Date().toISOString().slice(0,10);
+  document.getElementById('editExpModal').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('eeDesc').focus(),100);
+}
+function toInputDate(d) {
+  // convert dd/mm/yyyy or thai date to yyyy-mm-dd for input[type=date]
+  if (!d) return new Date().toISOString().slice(0,10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+  const parts = d.split('/');
+  if (parts.length===3) {
+    let y=parseInt(parts[2]); if(y>2400) y-=543; // convert BE to CE
+    return `${y}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+  }
+  return new Date().toISOString().slice(0,10);
+}
+async function saveEditExpense() {
+  const desc = document.getElementById('eeDesc').value.trim();
+  const amount = parseFloat(document.getElementById('eeAmount').value);
+  if (!desc||!amount) { alert('กรุณากรอกรายการและจำนวนเงิน'); return; }
+  const btn = document.getElementById('saveEditExpBtn');
+  setLoading(btn,true);
+  const p = phases.find(x=>x.id===editingExpPid);
+  const e = p.expenses.find(x=>x.id===editingExpId);
+  e.desc = desc;
+  e.cat = document.getElementById('eeCat').value;
+  e.paidBy = document.getElementById('eePaidBy').value.trim();
+  e.amount = amount;
+  e.date = document.getElementById('eeDate').value;
+  render(); closeModal('editExpModal');
+  try { await saveData(); toast('แก้ไขรายการสำเร็จ ✓'); }
+  catch(err) { toast('บันทึกไม่สำเร็จ: '+err.message,'err',6000); }
+  setLoading(btn,false);
 }
 
 // ═══ SLIP UPLOAD ═══
