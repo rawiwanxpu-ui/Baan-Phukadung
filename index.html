@@ -250,9 +250,9 @@ input[type=file]{display:none;}
 <!-- PAGE: CHARTS -->
 <div class="page" id="page-charts">
   <div style="padding:1.25rem">
-    <div class="chart-grid">
-      <div class="card"><div class="card-hd">🍩 แยกตามประเภท</div><div class="chart-box"><canvas id="cType"></canvas></div></div>
-      <div class="card"><div class="card-hd">📊 แยกตาม Phase</div><div class="chart-box"><canvas id="cPhase"></canvas></div></div>
+    <div class="card" style="margin-bottom:.875rem">
+      <div class="card-hd">📊 ค่าใช้จ่ายแต่ละ Phase เทียบงบประมาณ</div>
+      <div style="height:200px"><canvas id="cPhase"></canvas></div>
     </div>
     <div class="card"><div class="card-hd">📋 ตารางสรุป</div><div id="sumTableWrap"></div></div>
   </div>
@@ -926,41 +926,69 @@ function render() {
 //  CHARTS
 // ══════════════════════════════════════
 function renderCharts() {
-  const byType={lumpsum:0,material:0,labor:0,equipment:0,other:0};
-  phases.forEach(p=>p.expenses.forEach(e=>{byType[e.cat]=(byType[e.cat]||0)+(e.amount||0);}));
-  const pNames=phases.map(p=>p.name);
-  const pSpent=phases.map(p=>p.expenses.reduce((a,e)=>a+(e.amount||0),0));
-  const pBudget=phases.map(p=>p.budget||0);
+  const pLabels = phases.map((p,i)=>'Phase '+(i+1));
+  const pSpent  = phases.map(p=>p.expenses.reduce((a,e)=>a+(e.amount||0),0));
+  const pBudget = phases.map(p=>p.budget||0);
 
-  if(charts.t)charts.t.destroy();
-  if(charts.p)charts.p.destroy();
-
-  charts.t=new Chart(document.getElementById('cType').getContext('2d'),{
-    type:'doughnut',
-    data:{labels:Object.keys(byType).map(k=>CL[k]),datasets:[{data:Object.values(byType),backgroundColor:Object.keys(byType).map(k=>CLR[k]),borderWidth:2,borderColor:'#fff'}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{family:'Sarabun',size:11},padding:12}},tooltip:{callbacks:{label:c=>`${c.label}: ${fmt(c.raw)}`}}}}
-  });
-  charts.p=new Chart(document.getElementById('cPhase').getContext('2d'),{
+  if(charts.p) charts.p.destroy();
+  charts.p = new Chart(document.getElementById('cPhase').getContext('2d'),{
     type:'bar',
-    data:{labels:pNames,datasets:[
-      {label:'งบประมาณ',data:pBudget,backgroundColor:'rgba(100,153,34,.2)',borderColor:'#639922',borderWidth:1.5,borderRadius:4},
-      {label:'ใช้จริง',data:pSpent,backgroundColor:'rgba(239,159,39,.8)',borderColor:'#BA7517',borderWidth:1.5,borderRadius:4}
-    ]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{family:'Sarabun',size:11}}}},
-      scales:{y:{ticks:{callback:v=>'฿'+v.toLocaleString('th-TH'),font:{family:'Sarabun',size:10}},grid:{color:'rgba(0,0,0,.04)'}},x:{ticks:{font:{family:'Sarabun',size:10}},grid:{display:false}}}}
+    data:{
+      labels: pLabels,
+      datasets:[
+        {label:'งบประมาณ',data:pBudget,backgroundColor:'rgba(100,153,34,.2)',borderColor:'#639922',borderWidth:1.5,borderRadius:4},
+        {label:'ใช้จริง',data:pSpent,backgroundColor:'rgba(239,159,39,.85)',borderColor:'#BA7517',borderWidth:1.5,borderRadius:4}
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{position:'bottom',labels:{font:{family:'Sarabun',size:11},padding:10}},
+        tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${fmt(ctx.raw)}`}}
+      },
+      scales:{
+        y:{ticks:{callback:v=>'฿'+v.toLocaleString('th-TH'),font:{family:'Sarabun',size:10}},grid:{color:'rgba(0,0,0,.04)'}},
+        x:{ticks:{font:{family:'Sarabun',size:11}},grid:{display:false}}
+      }
+    }
   });
 
-  const total=Object.values(byType).reduce((a,b)=>a+b,0);
+  // Summary table per phase
+  const totalB = phases.reduce((a,p)=>a+(p.budget||0),0);
+  const totalS = phases.reduce((a,p)=>a+p.expenses.reduce((b,e)=>b+(e.amount||0),0),0);
   document.getElementById('sumTableWrap').innerHTML=`
     <table class="sum-table">
-      <thead><tr><th style="text-align:left">ประเภท</th><th style="text-align:right">จำนวนเงิน</th><th style="text-align:right">%</th></tr></thead>
+      <thead><tr>
+        <th style="text-align:left">Phase</th>
+        <th style="text-align:left">ชื่อ</th>
+        <th style="text-align:left">สถานะ</th>
+        <th style="text-align:right">งบประมาณ</th>
+        <th style="text-align:right">ใช้จริง</th>
+        <th style="text-align:right">คงเหลือ</th>
+        <th style="text-align:center">%</th>
+      </tr></thead>
       <tbody>
-        ${Object.entries(byType).filter(([,v])=>v>0).map(([k,v])=>`<tr>
-          <td><span class="ecat ${CC[k]}">${CL[k]}</span></td>
-          <td style="text-align:right;font-family:'Kanit',sans-serif;color:var(--g8)">${fmt(v)}</td>
-          <td style="text-align:right;color:var(--muted)">${total?Math.round(v/total*100):0}%</td>
-        </tr>`).join('')}
-        <tr><td style="font-weight:600">รวม</td><td style="text-align:right;font-family:'Kanit',sans-serif;font-weight:600;font-size:15px;color:var(--g8)">${fmt(total)}</td><td style="text-align:right">100%</td></tr>
+        ${phases.map((p,i)=>{
+          const spent=p.expenses.reduce((a,e)=>a+(e.amount||0),0);
+          const pct=p.budget?Math.min(100,Math.round(spent/p.budget*100)):'-';
+          const over=p.budget&&spent>p.budget;
+          return `<tr>
+            <td style="font-weight:600;color:var(--g8)">Phase ${i+1}</td>
+            <td>${p.name}</td>
+            <td><span class="sbadge ${SC[p.status]}">${SL[p.status]}</span></td>
+            <td style="text-align:right;color:var(--muted)">${p.budget?fmt(p.budget):'—'}</td>
+            <td style="text-align:right;font-family:'Kanit',sans-serif;font-weight:500;color:var(--g8)">${fmt(spent)}</td>
+            <td style="text-align:right;font-family:'Kanit',sans-serif;color:${over?'var(--r6)':'var(--g7)'}">${p.budget?fmt(p.budget-spent):'—'}</td>
+            <td style="text-align:center;color:${over?'var(--r6)':'var(--muted)'}">${p.budget?pct+'%':'-'}${over?' ⚠':''}</td>
+          </tr>`;
+        }).join('')}
+        <tr style="font-weight:600;background:var(--g1)">
+          <td colspan="3">รวมทั้งหมด</td>
+          <td style="text-align:right;font-family:'Kanit',sans-serif">${fmt(totalB)}</td>
+          <td style="text-align:right;font-family:'Kanit',sans-serif;font-size:15px;color:var(--g8)">${fmt(totalS)}</td>
+          <td style="text-align:right;font-family:'Kanit',sans-serif;color:var(--g7)">${fmt(totalB-totalS)}</td>
+          <td></td>
+        </tr>
       </tbody>
     </table>`;
 }
