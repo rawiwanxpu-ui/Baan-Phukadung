@@ -958,36 +958,51 @@ function renderCharts() {
   const totalS = phases.reduce((a,p)=>a+p.expenses.reduce((b,e)=>b+(e.amount||0),0),0);
   document.getElementById('sumTableWrap').innerHTML=`
     <table class="sum-table">
-      <thead><tr>
-        <th style="text-align:left">Phase</th>
-        <th style="text-align:left">ชื่อ</th>
-        <th style="text-align:left">สถานะ</th>
-        <th style="text-align:right">งบประมาณ</th>
-        <th style="text-align:right">ใช้จริง</th>
-        <th style="text-align:right">คงเหลือ</th>
-        <th style="text-align:center">%</th>
+      <thead><tr style="background:var(--g8);color:#fff">
+        <th style="padding:7px 10px;text-align:left">Phase</th>
+        <th style="padding:7px 10px;text-align:left">ชื่องาน</th>
+        <th style="padding:7px 10px;text-align:left">สถานะ</th>
+        <th style="padding:7px 10px;text-align:left">วันที่</th>
+        <th style="padding:7px 10px;text-align:left">รายการ</th>
+        <th style="padding:7px 10px;text-align:left">ประเภท</th>
+        <th style="padding:7px 10px;text-align:left">จ่ายโดย</th>
+        <th style="padding:7px 10px;text-align:right">จำนวนเงิน</th>
       </tr></thead>
       <tbody>
-        ${phases.map((p,i)=>{
+        ${phases.flatMap((p,i)=>{
+          const rows = [];
+          p.expenses.forEach((e,j)=>{
+            const over = p.budget && p.expenses.reduce((a,x)=>a+(x.amount||0),0) > p.budget;
+            rows.push(`<tr style="border-bottom:1px solid var(--n0)">
+              ${j===0?`<td style="font-weight:600;color:var(--g8);vertical-align:top" rowspan="${p.expenses.length||1}">Phase ${i+1}</td>
+              <td style="vertical-align:top" rowspan="${p.expenses.length||1}">${p.name}</td>
+              <td style="vertical-align:top" rowspan="${p.expenses.length||1}"><span class="sbadge ${SC[p.status]}">${SL[p.status]}</span></td>`:''}
+              <td style="padding:6px 8px;color:var(--muted);font-size:11px;white-space:nowrap">${e.date}</td>
+              <td style="padding:6px 8px">${e.desc}</td>
+              <td style="padding:6px 8px"><span class="ecat ${CC[e.cat]||'c-oth'}">${CL[e.cat]||e.cat}</span></td>
+              <td style="padding:6px 8px;color:var(--muted)">${e.paidBy||'—'}</td>
+              <td style="padding:6px 8px;text-align:right;font-family:'Kanit',sans-serif;font-weight:500;color:var(--g8)">${fmt(e.amount)}</td>
+            </tr>`);
+          });
+          if(!p.expenses.length){
+            rows.push(`<tr style="border-bottom:1px solid var(--n0)">
+              <td style="font-weight:600;color:var(--g8)">Phase ${i+1}</td>
+              <td>${p.name}</td>
+              <td><span class="sbadge ${SC[p.status]}">${SL[p.status]}</span></td>
+              <td colspan="5" style="color:var(--muted);font-size:12px;padding:6px 8px">ยังไม่มีรายการ</td>
+            </tr>`);
+          }
+          // subtotal row per phase
           const spent=p.expenses.reduce((a,e)=>a+(e.amount||0),0);
-          const pct=p.budget?Math.min(100,Math.round(spent/p.budget*100)):'-';
-          const over=p.budget&&spent>p.budget;
-          return `<tr>
-            <td style="font-weight:600;color:var(--g8)">Phase ${i+1}</td>
-            <td>${p.name}</td>
-            <td><span class="sbadge ${SC[p.status]}">${SL[p.status]}</span></td>
-            <td style="text-align:right;color:var(--muted)">${p.budget?fmt(p.budget):'—'}</td>
-            <td style="text-align:right;font-family:'Kanit',sans-serif;font-weight:500;color:var(--g8)">${fmt(spent)}</td>
-            <td style="text-align:right;font-family:'Kanit',sans-serif;color:${over?'var(--r6)':'var(--g7)'}">${p.budget?fmt(p.budget-spent):'—'}</td>
-            <td style="text-align:center;color:${over?'var(--r6)':'var(--muted)'}">${p.budget?pct+'%':'-'}${over?' ⚠':''}</td>
-          </tr>`;
+          rows.push(`<tr style="background:var(--g1);font-weight:600;border-bottom:2px solid var(--g2)">
+            <td colspan="7" style="padding:6px 10px;color:var(--muted);font-size:11px">รวม Phase ${i+1} — ${p.name}</td>
+            <td style="padding:6px 10px;text-align:right;font-family:'Kanit',sans-serif;color:var(--g8)">${fmt(spent)}</td>
+          </tr>`);
+          return rows;
         }).join('')}
-        <tr style="font-weight:600;background:var(--g1)">
-          <td colspan="3">รวมทั้งหมด</td>
-          <td style="text-align:right;font-family:'Kanit',sans-serif">${fmt(totalB)}</td>
-          <td style="text-align:right;font-family:'Kanit',sans-serif;font-size:15px;color:var(--g8)">${fmt(totalS)}</td>
-          <td style="text-align:right;font-family:'Kanit',sans-serif;color:var(--g7)">${fmt(totalB-totalS)}</td>
-          <td></td>
+        <tr style="font-weight:600;background:var(--g8);color:#fff">
+          <td colspan="7" style="padding:8px 10px;font-family:'Kanit',sans-serif">รวมทั้งหมด</td>
+          <td style="padding:8px 10px;text-align:right;font-family:'Kanit',sans-serif;font-size:15px">${fmt(totalS)}</td>
         </tr>
       </tbody>
     </table>`;
