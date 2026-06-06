@@ -219,6 +219,7 @@ input[type=file]{display:none;}
 <div class="nav">
   <button class="nav-btn on" onclick="showPage('expenses','tab-exp')" id="tab-exp">📋 ค่าใช้จ่าย</button>
   <button class="nav-btn" onclick="showPage('charts','tab-chart')" id="tab-chart">📊 กราฟสรุป</button>
+  <button class="nav-btn" onclick="showPage('summary','tab-summary')" id="tab-summary">🔍 รายงานสรุป</button>
   <button class="nav-btn" onclick="showPage('topview','tab-tv')" id="tab-tv">🗺 Top View</button>
   <button class="nav-btn" onclick="showPage('export','tab-exp2')" id="tab-exp2">📤 Export</button>
 </div>
@@ -255,6 +256,57 @@ input[type=file]{display:none;}
       <div style="height:200px"><canvas id="cPhase"></canvas></div>
     </div>
     <div class="card"><div class="card-hd">📋 ตารางสรุป</div><div id="sumTableWrap"></div></div>
+  </div>
+</div>
+
+<!-- PAGE: SUMMARY REPORT -->
+<div class="page" id="page-summary">
+  <div style="padding:1.25rem">
+    <!-- FILTER BAR -->
+    <div class="card" style="margin-bottom:.875rem">
+      <div class="card-hd">🔍 ตัวกรองรายงาน</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end">
+        <div class="fg">
+          <label>ประเภทค่าใช้จ่าย</label>
+          <select id="sf-cat" onchange="renderSummaryReport()">
+            <option value="">ทั้งหมด</option>
+            <option value="lumpsum">เหมารวม</option>
+            <option value="material">วัสดุ</option>
+            <option value="labor">แรงงาน</option>
+            <option value="equipment">เครื่องจักร</option>
+            <option value="other">อื่นๆ</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>จ่ายโดย</label>
+          <select id="sf-paid" onchange="renderSummaryReport()">
+            <option value="">ทั้งหมด</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>เดือนที่จ่าย</label>
+          <select id="sf-month" onchange="renderSummaryReport()">
+            <option value="">ทั้งหมด</option>
+          </select>
+        </div>
+        <button class="btn btn-s" onclick="clearSummaryFilters()">↺ รีเซ็ต</button>
+      </div>
+    </div>
+
+    <!-- STAT CARDS -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin-bottom:.875rem" id="sr-stats">
+    </div>
+
+    <!-- RESULTS TABLE -->
+    <div class="card">
+      <div class="card-hd" style="justify-content:space-between">
+        <span>📋 รายการค่าใช้จ่าย</span>
+        <span id="sr-count" style="font-size:12px;font-weight:400;color:var(--muted)"></span>
+      </div>
+      <div style="overflow-x:auto" id="sr-table-wrap">
+        <p style="color:var(--muted);font-size:12px;padding:1rem 0">กำลังโหลด...</p>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -571,6 +623,17 @@ function fmtDate(d) {
     return dt.toLocaleDateString('th-TH', {day:'numeric', month:'short', year:'numeric'});
   } catch(e) { return d; }
 }
+function fmtDateShort(d) {
+  if (!d) return '—';
+  try {
+    const dt = new Date(d);
+    if (isNaN(dt)) return d;
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth()+1).padStart(2,'0');
+    const day = String(dt.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  } catch(e) { return d; }
+}
 function nowTime() { return new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}); }
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 function toast(msg, type='ok', dur=3000) {
@@ -605,6 +668,7 @@ function showPage(page, tabId) {
   document.getElementById(tabId).classList.add('on');
   if (page==='charts') renderCharts();
   if (page==='export') renderReport();
+  if (page==='summary') { populateSummaryFilters(); renderSummaryReport(); }
 }
 
 // ══════════════════════════════════════
@@ -878,7 +942,7 @@ function render() {
         </tr></thead>
         <tbody>
           ${p.expenses.map(e=>`<tr>
-            <td style="font-size:11px;color:var(--muted);white-space:nowrap">${e.date}</td>
+            <td style="font-size:11px;color:var(--muted);white-space:nowrap">${fmtDateShort(e.date)}</td>
             <td>${e.desc}</td>
             <td><span class="ecat ${CC[e.cat]||'c-oth'}">${CL[e.cat]||e.cat}</span></td>
             <td style="font-size:12px;color:var(--muted)">${e.paidBy||'—'}</td>
@@ -1200,6 +1264,127 @@ function exportJSON() {
   a.href=URL.createObjectURL(new Blob([JSON.stringify({exportDate:new Date().toISOString(),phases},null,2)],{type:'application/json'}));
   a.download=`backup_${new Date().toLocaleDateString('th-TH')}.json`;
   a.click(); toast('Backup JSON สำเร็จ ✓');
+}
+
+// ══════════════════════════════════════
+//  SUMMARY REPORT
+// ══════════════════════════════════════
+function populateSummaryFilters() {
+  // Collect unique paidBy values
+  const paidSet = new Set();
+  const monthSet = new Set();
+  phases.forEach(p => p.expenses.forEach(e => {
+    if (e.paidBy) paidSet.add(e.paidBy.trim());
+    if (e.date) {
+      try {
+        const dt = new Date(e.date);
+        if (!isNaN(dt)) monthSet.add(`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`);
+      } catch(err) {}
+    }
+  }));
+
+  const sfPaid = document.getElementById('sf-paid');
+  const curPaid = sfPaid.value;
+  sfPaid.innerHTML = '<option value="">ทั้งหมด</option>';
+  [...paidSet].sort().forEach(v => {
+    const o = document.createElement('option'); o.value = v; o.textContent = v;
+    if (v === curPaid) o.selected = true;
+    sfPaid.appendChild(o);
+  });
+
+  const sfMonth = document.getElementById('sf-month');
+  const curMonth = sfMonth.value;
+  sfMonth.innerHTML = '<option value="">ทั้งหมด</option>';
+  [...monthSet].sort().reverse().forEach(v => {
+    const [y, m] = v.split('-');
+    const label = new Date(parseInt(y), parseInt(m)-1, 1).toLocaleDateString('th-TH', {year:'numeric', month:'long'});
+    const o = document.createElement('option'); o.value = v; o.textContent = label;
+    if (v === curMonth) o.selected = true;
+    sfMonth.appendChild(o);
+  });
+}
+
+function clearSummaryFilters() {
+  document.getElementById('sf-cat').value = '';
+  document.getElementById('sf-paid').value = '';
+  document.getElementById('sf-month').value = '';
+  renderSummaryReport();
+}
+
+function renderSummaryReport() {
+  const fCat = document.getElementById('sf-cat').value;
+  const fPaid = document.getElementById('sf-paid').value;
+  const fMonth = document.getElementById('sf-month').value;
+
+  // Flatten all expenses with phase info
+  let rows = [];
+  phases.forEach(p => p.expenses.forEach(e => {
+    let monthKey = '';
+    try {
+      const dt = new Date(e.date);
+      if (!isNaN(dt)) monthKey = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`;
+    } catch(err) {}
+    rows.push({ ...e, phaseName: p.name, phaseStatus: p.status, monthKey });
+  }));
+
+  // Apply filters
+  if (fCat) rows = rows.filter(r => r.cat === fCat);
+  if (fPaid) rows = rows.filter(r => (r.paidBy||'').trim() === fPaid);
+  if (fMonth) rows = rows.filter(r => r.monthKey === fMonth);
+
+  const total = rows.reduce((a,r) => a+(r.amount||0), 0);
+  const catBreak = {};
+  rows.forEach(r => { catBreak[r.cat] = (catBreak[r.cat]||0) + (r.amount||0); });
+  const topCat = Object.entries(catBreak).sort((a,b)=>b[1]-a[1])[0];
+
+  // Stats
+  document.getElementById('sr-stats').innerHTML = `
+    <div style="background:var(--g1);border-radius:8px;padding:.875rem;text-align:center;border:1px solid var(--g2)">
+      <div style="font-family:'Kanit',sans-serif;font-size:22px;font-weight:600;color:var(--g8)">${rows.length}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:2px">รายการที่พบ</div>
+    </div>
+    <div style="background:var(--a1);border-radius:8px;padding:.875rem;text-align:center;border:1px solid var(--a2)">
+      <div style="font-family:'Kanit',sans-serif;font-size:22px;font-weight:600;color:var(--a7)">${fmt(total)}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:2px">รวมค่าใช้จ่าย</div>
+    </div>
+    <div style="background:var(--t1);border-radius:8px;padding:.875rem;text-align:center;border:1px solid var(--t2)">
+      <div style="font-family:'Kanit',sans-serif;font-size:18px;font-weight:600;color:var(--t6)">${topCat ? CL[topCat[0]]||topCat[0] : '—'}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:2px">ประเภทที่ใช้มากสุด</div>
+    </div>`;
+
+  document.getElementById('sr-count').textContent = rows.length + ' รายการ';
+
+  if (!rows.length) {
+    document.getElementById('sr-table-wrap').innerHTML = `<div class="empty"><div style="font-size:32px;margin-bottom:.5rem">🔍</div><p>ไม่พบรายการที่ตรงกับตัวกรอง</p></div>`;
+    return;
+  }
+
+  const tableHtml = `
+    <table class="etable">
+      <thead><tr>
+        <th>วันที่</th>
+        <th>Phase</th>
+        <th>รายการ</th>
+        <th>ประเภท</th>
+        <th>จ่ายโดย</th>
+        <th style="text-align:right">จำนวนเงิน</th>
+      </tr></thead>
+      <tbody>
+        ${rows.map(r => `<tr>
+          <td style="font-size:11px;color:var(--muted);white-space:nowrap">${fmtDateShort(r.date)}</td>
+          <td style="font-size:12px;color:var(--muted)">${r.phaseName}</td>
+          <td>${r.desc}</td>
+          <td><span class="ecat ${CC[r.cat]||'c-oth'}">${CL[r.cat]||r.cat}</span></td>
+          <td style="font-size:12px;color:var(--muted)">${r.paidBy||'—'}</td>
+          <td class="amt-cell">${fmt(r.amount)}</td>
+        </tr>`).join('')}
+        <tr class="total-row">
+          <td colspan="5" style="color:var(--muted);font-size:11px">รวมทั้งหมด</td>
+          <td class="amt-cell" style="font-size:15px">${fmt(total)}</td>
+        </tr>
+      </tbody>
+    </table>`;
+  document.getElementById('sr-table-wrap').innerHTML = tableHtml;
 }
 
 // ══════════════════════════════════════
